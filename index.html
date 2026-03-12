@@ -29,7 +29,7 @@
 
           <label>
             Bortalag
-            <input id="awayTeam" type="text" value="IK Brage U19" />
+            <input id="awayTeam" type="text" value="Dala-Järna IK" />
           </label>
 
           <div class="row">
@@ -59,21 +59,39 @@
             </label>
           </div>
 
-          <div class="row">
-            <label>
-              Format
-              <select id="format">              
-                <option value="1080x1350" selected>Inlägg Facebook/Instagram (1080 x 1350)</option>
-                <option value="1080x1920">Story Facebook/Instagram (1080 x 1920)</option>
-                <option value="1920x1005">Facebook Evenemang (1920 x 1005)</option>
-              </select>
-            </label>
-          </div>
+          <label>
+            Format
+            <select id="format">              
+              <option value="1080x1350" selected>Inlägg Facebook/Instagram (1080 x 1350)</option>
+              <option value="1080x1920">Story Facebook/Instagram (1080 x 1920)</option>
+              <option value="1920x1005">Facebook Evenemang (1920 x 1005)</option>
+            </select>
+          </label>
 
           <div class="actions">
             <button id="renderBtn" class="btn primary">Skapa bild</button>
             <button id="downloadBtn" class="btn" disabled>Ladda ner PNG</button>
           </div>
+
+        </br>
+
+          <h2>Valfritt: Importera matchdata</h2>
+
+            <label>
+              Välj CSV-fil
+              <input id="csvFile" type="file" accept=".csv,text/csv" />
+            </label>
+            
+            <button id="loadCsvBtn" class="btn">Läs CSV</button>
+          </br></br>
+            
+            <label>
+              Välj match
+              <select id="matchSelect" disabled>
+                <option value="">— Ladda CSV först —</option>
+              </select>
+            </label>
+
         </div>
       </section>
 

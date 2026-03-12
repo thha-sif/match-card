@@ -1,4 +1,4 @@
-:root{
+ :root{
   --bg:#f6f8fb;
   --card:#ffffff;
   --text:#0b1220;
@@ -11,7 +11,7 @@
 *{ box-sizing:border-box; }
 body{
   margin:0;
-  font-family: "Bebas Neue", system-ui;
+  font-family: Inter, system-ui;
   background: var(--bg);
   color: var(--text);
 }
@@ -51,7 +51,7 @@ h2{ margin: 0 0 12px; font-size: 16px; color: #111b2d; }
   display:block;
   font-size: 12px;
   color: var(--muted);
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 .form input, .form select{
   width:100%;
@@ -62,6 +62,7 @@ h2{ margin: 0 0 12px; font-size: 16px; color: #111b2d; }
   outline: none;
   font-size: 14px;
 }
+
 .form input:focus, .form select:focus{
   border-color: rgba(1,56,136,.45);
   box-shadow: 0 0 0 3px rgba(1,56,136,.10);
@@ -80,6 +81,7 @@ h2{ margin: 0 0 12px; font-size: 16px; color: #111b2d; }
 }
 
 .btn{
+  height: 40px;
   padding: 10px 12px;
   border-radius: 14px;
   border: 1px solid rgba(15, 20, 35, .12);
