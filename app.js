@@ -3,7 +3,7 @@ const el = (id) => document.getElementById(id);
 const canvas = el("card");
 const ctx = canvas.getContext("2d");
 
-const FONT_SCALE = 1.15;
+const FONT_SCALE = 1.18; // justera globalt för att finjustera textstorlekar
 
 const state = {
   homeLogo: null,
@@ -262,9 +262,8 @@ async function handleFiles() {
     } else {
       state.awayLogo = await loadFileImage(awayFile);
     }
-  } else {
-    state.awayLogo = null;
   }
+  // If no file uploaded, leave state.awayLogo as is (could be auto-loaded)
 }
 
 let lastAwayKey = "";
@@ -374,9 +373,9 @@ function drawMatchupStackedCentered({ centerX, y, maxWidth, home, away, lineGap 
   const lh = Math.round(mainSize * (1 + lineGap));
 
   // Outline (du kan sänka om du vill)
-  const owHome = Math.max(2, Math.round(homeSize * 0.06));
-  const owVs = Math.max(2, Math.round(vsSize * 0.06));
-  const owAway = Math.max(2, Math.round(awaySize * 0.06));
+  const owHome = Math.max(2, Math.round(homeSize * 0.07));
+  const owVs = Math.max(2, Math.round(vsSize * 0.09));
+  const owAway = Math.max(2, Math.round(awaySize * 0.07));
 
   // HOME
   ctx.font = homeTpl.replace("{size}", homeSize);
@@ -428,7 +427,7 @@ function draw() {
   ctx.fillStyle = COLORS.blue;
   ctx.fillRect(0, 0, W, bannerH);
 
-  const bannerText = "MATCHDAG";
+  const bannerText = ((el("bannerText")?.value) || "").trim().toUpperCase() || "MATCHDAG";
   const bannerSize = Math.round(Math.min(W, H) * 0.13 * FONT_SCALE);
 
   ctx.fillStyle = COLORS.white;
@@ -463,7 +462,7 @@ function draw() {
   }
 
   // ===== MATCHUP =====
-  const titleY = contentTop + logoSize + Math.round(H * 0.1);
+  const titleY = contentTop + logoSize + Math.round(H * 0.11);
   const maxTitleWidth = Math.round(W * 0.82);
 
   const titleBottomY = drawMatchupStackedCentered({
