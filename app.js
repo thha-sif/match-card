@@ -428,10 +428,13 @@ function draw() {
   ctx.fillRect(0, 0, W, bannerH);
 
   const bannerText = ((el("bannerText")?.value) || "").trim().toUpperCase() || "MATCHDAG";
-  const bannerSize = Math.round(Math.min(W, H) * 0.13 * FONT_SCALE);
+  const bannerBaseSize = Math.round(Math.min(W, H) * 0.13 * FONT_SCALE);
+  const bannerMinSize = 18;
+  const bannerTpl = `900 {size}px "Inter", system-ui`;
+  const bannerSize = fitText(bannerText, Math.round(W * 0.9), bannerBaseSize, bannerMinSize, bannerTpl);
 
   ctx.fillStyle = COLORS.white;
-  ctx.font = `900 ${bannerSize}px "Bebas Neue", system-ui`;
+  ctx.font = bannerTpl.replace("{size}", bannerSize);
 
   // --- MATCHDAG: perfekt centrerad i bannern ---
   ctx.save();
@@ -495,9 +498,9 @@ function draw() {
   ctx.fillStyle = COLORS.blue;
   ctx.fillRect(0, footerY, W, footerH);
 
-  const footerText = infoText || " ";
-  const footerBaseSize = Math.round(Math.min(W, H) * 0.05 * FONT_SCALE);
-  const footerMinSize = 14;
+  const footerText = infoText.toUpperCase();
+  const footerBaseSize = Math.round(Math.min(W, H) * 0.07 * FONT_SCALE);
+  const footerMinSize = 16;
   const footerTpl = `900 {size}px "Bebas Neue", system-ui`;
   
   const footerSize = fitText(footerText, Math.round(W * 0.95), footerBaseSize, footerMinSize, footerTpl);
