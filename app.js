@@ -183,10 +183,11 @@ function parseMatchesFromYourCSV(text) {
  * Valbara bakgrunder (assets/bg/...)
  */
 const BACKGROUNDS = [
-  { id: "bg1", label: "Blåvit", url: "assets/bg/blue_white.png" },
-  { id: "bg2", label: "Tröja", url: "assets/bg/shirt.png" },
-  { id: "bg3", label: "Gräs", url: "assets/bg/green_grass.png" },
-  { id: "bg4", label: "Fotboll", url: "assets/bg/football.png" },
+  { id: "bg1", label: "Blåvit pensel", url: "assets/bg/blue_white.png" },
+  { id: "bg2", label: "Blåvit kristall", url: "assets/bg/blue_white2.png" },
+  { id: "bg3", label: "Tröja", url: "assets/bg/shirt.png" },
+  { id: "bg4", label: "Gräs", url: "assets/bg/green_grass.png" },
+  { id: "bg5", label: "Fotboll", url: "assets/bg/football.png" },
 ];
 
 function ensureBackgroundSelectPopulated() {
