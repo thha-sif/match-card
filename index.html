@@ -4,10 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Matchkort-generator</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
+<!--   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Teko:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Teko:wght@600;700;800&display=swap" rel="stylesheet"> -->
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -41,7 +41,7 @@
 
           <label>
             Bortalag
-            <input id="awayTeam" type="text" value="Bortalag" />
+            <input id="awayTeam" type="text" value="" />
           </label>
 
           <div class="row">
@@ -62,14 +62,19 @@
 
           <div class="row">
             <label>
-              Bortalogga (valfri)
-              <input id="awayLogo" type="file" accept="image/*" />
+              Hemmalogga (valfritt)
+              <input id="homeLogo" type="file" accept="image/*" />
             </label>
             <label>
-              Bakgrund
-              <select id="bgSelect"></select>
+              Bortalogga (valfritt)
+              <input id="awayLogo" type="file" accept="image/*" />
             </label>
           </div>
+
+          <label>
+            Bakgrund
+            <select id="bgSelect"></select>
+          </label>
 
           <label>
             Bildformat

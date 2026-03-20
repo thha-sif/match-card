@@ -17,7 +17,7 @@ const COLORS = {
   blue: "#013888",
   black: "#000000",
   white: "#FFFFFF",
-  offwhite: "#F6F8FB",
+  offwhite: "#F4F2EE",
 };
 
 function getSelectedFormat() {
@@ -46,6 +46,7 @@ function teamToLogoFilename(teamName) {
     .replace(/ö/g, "o")
     .replace(/-/g, " ")
     .replace(/[^\w\s]/g, "")
+    .replace(/\b(fotboll|herr|herrar)\b/g, "")
     .replace(/\s+(u\d*|a)$/i, "")
     .replace(/\s+/g, "_")
     .replace(/^_+|_+$/g, "") + ".png";
@@ -118,8 +119,9 @@ async function applyMatchToForm(m) {
   if (m.date) el("date").value = m.date;   // YYYY-MM-DD
   if (m.time) el("time").value = m.time;   // HH:MM
 
-  await autoLoadAwayLogo(); // <-- viktigt: ladda bortalogga direkt när awayTeam sätts via kod
-  draw();                   // <-- rita efter att loggan laddats
+  await autoLoadHomeLogo();
+  await autoLoadAwayLogo();
+  draw();
 }
 
 el("loadCsvBtn")?.addEventListener("click", async (e) => {
@@ -183,11 +185,12 @@ function parseMatchesFromYourCSV(text) {
  * Valbara bakgrunder (assets/bg/...)
  */
 const BACKGROUNDS = [
-  { id: "bg1", label: "Blåvit pensel", url: "assets/bg/blue_white.png" },
-  { id: "bg2", label: "Blåvit kristall", url: "assets/bg/blue_white2.png" },
-  { id: "bg3", label: "Tröja", url: "assets/bg/shirt.png" },
-  { id: "bg4", label: "Gräs", url: "assets/bg/green_grass.png" },
-  { id: "bg5", label: "Fotboll", url: "assets/bg/football.png" },
+  { id: "bg1", label: "Gräs", url: "assets/bg/blue_grass.png" },
+  { id: "bg2", label: "Fotboll", url: "assets/bg/football.png" },
+  { id: "bg3", label: "Trävägg", url: "assets/bg/blue_wood.png" },
+  { id: "bg4", label: "Tröja", url: "assets/bg/shirt.png" },
+  { id: "bg5", label: "Blåvit pensel", url: "assets/bg/blue_white.png" },
+  { id: "bg6", label: "Blåvit dimma", url: "assets/bg/blue_mist.png" },
 ];
 
 function ensureBackgroundSelectPopulated() {
@@ -228,18 +231,10 @@ async function applySelectedBackground() {
   }
 }
 
-async function handleFiles() {
-  // Hemmalogga: default (laddas en gång)
-  if (!state.homeLogo) {
-    try {
-      state.homeLogo = await loadImageFromURL("assets/logo/siffk.png");
-    } catch (e) {
-      console.warn("Kunde inte ladda assets/logo/siffk.png", e);
-      state.homeLogo = null;
-    }
-  }
+let lastHomeKey = "";
+let lastAwayKey = "";
 
-  // Placeholder för bortalag: default (laddas en gång)
+async function ensureDefaults() {
   if (!state.placeholderLogo) {
     try {
       state.placeholderLogo = await loadImageFromURL("assets/logo/placeholder.png");
@@ -248,15 +243,29 @@ async function handleFiles() {
       state.placeholderLogo = null;
     }
   }
+}
 
-  // Bortalogga uppladdning
+async function handleFiles() {
+  await ensureDefaults();
+
+  const transparentTypes = ["image/png", "image/webp", "image/gif"];
+
+  const homeInput = el("homeLogo");
+  const homeFile = homeInput?.files?.[0];
+  if (homeFile) {
+    if (!transparentTypes.includes(homeFile.type)) {
+      alert("Endast PNG, WebP eller GIF-filer (med transparens) är tillåtna för hemmaloga.");
+      homeInput.value = "";
+      state.homeLogo = null;
+    } else {
+      state.homeLogo = await loadFileImage(homeFile);
+    }
+  }
+
   const awayInput = el("awayLogo");
   const awayFile = awayInput?.files?.[0];
-  // Only allow image types that support transparency
-  const transparentTypes = ["image/png", "image/webp", "image/gif"];
   if (awayFile) {
     if (!transparentTypes.includes(awayFile.type)) {
-      // Show error message
       alert("Endast PNG, WebP eller GIF-filer (med transparens) är tillåtna för bortalogga.");
       awayInput.value = "";
       state.awayLogo = null;
@@ -264,24 +273,52 @@ async function handleFiles() {
       state.awayLogo = await loadFileImage(awayFile);
     }
   }
-  // If no file uploaded, leave state.awayLogo as is (could be auto-loaded)
 }
 
-let lastAwayKey = "";
+async function autoLoadHomeLogo() {
+  await ensureDefaults();
+
+  const homeTeam = ((el("homeTeam")?.value) || "").trim();
+  const key = homeTeam.toLowerCase();
+  if (key === lastHomeKey) return;
+  lastHomeKey = key;
+
+  const homeFile = el("homeLogo")?.files?.[0];
+  if (homeFile) return;
+
+  if (!homeTeam) {
+    state.homeLogo = null;
+    return;
+  }
+
+  const file = teamToLogoFilename(homeTeam);
+  const url = `assets/logo/${file}`;
+  console.log("homeTeam:", homeTeam, "=>", file, "URL:", url);
+
+  try {
+    state.homeLogo = await loadImageFromURL(url);
+  } catch (e) {
+    console.warn("Misslyckades ladda:", url, e);
+    state.homeLogo = null;
+  }
+}
 
 async function autoLoadAwayLogo() {
+  await ensureDefaults();
+
   const awayTeam = ((el("awayTeam")?.value) || "").trim();
   const key = awayTeam.toLowerCase();
-
-  // Kör bara när laget faktiskt ändrats
   if (key === lastAwayKey) return;
   lastAwayKey = key;
 
-  // Om användaren manuellt laddat upp en bortalogga: låt den vinna
   const awayFile = el("awayLogo")?.files?.[0];
   if (awayFile) return;
 
-  // Försök ladda logga baserat på lag-namn
+  if (!awayTeam) {
+    state.awayLogo = null;
+    return;
+  }
+
   const file = teamToLogoFilename(awayTeam);
   const url = `assets/logo/${file}`;
   console.log("awayTeam:", awayTeam, "=>", file, "URL:", url);
@@ -341,25 +378,9 @@ function centeredX(text, centerX) {
   return Math.round(centerX - w / 2);
 }
 
-function fillTextWithOutline(text, x, y, fill = "#fff", outline = "#000", outlineWidth = 6) {
-  ctx.save();
-  ctx.lineJoin = "round";
-  ctx.miterLimit = 2;
-  ctx.strokeStyle = outline;
-  ctx.lineWidth = outlineWidth;
-  ctx.strokeText(text, x, y);
-  ctx.fillStyle = fill;
-  ctx.fillText(text, x, y);
-  ctx.restore();
-}
-
-/**
- * HOME / VS / AWAY med symmetrisk spacing (VS lika långt från båda).
- */
-function drawMatchupStackedCentered({ centerX, y, maxWidth, home, away, lineGap = 0.22 }) {
-  const fontFamily = 'Teko, system-ui';
-
-  const base = Math.round(Math.min(canvas.width, canvas.height) * 0.11 * FONT_SCALE);
+function drawMatchupStackedCentered({ centerX, y, maxWidth, home, away, vsPx = 56, gapPx = null }) {
+  const fontFamily = "Segoe UI, system-ui";
+  const base = Math.round(Math.min(canvas.width, canvas.height) * 0.12 * FONT_SCALE);
   const minSize = 18;
 
   const homeTpl = `900 {size}px ${fontFamily}`;
@@ -368,31 +389,30 @@ function drawMatchupStackedCentered({ centerX, y, maxWidth, home, away, lineGap 
 
   const homeSize = fitText(home, maxWidth, base, minSize, homeTpl);
   const awaySize = fitText(away, maxWidth, base, minSize, awayTpl);
-  const mainSize = Math.min(homeSize, awaySize);
+  const vsSize = Math.max(12, Math.round(vsPx));
 
-  const vsSize = Math.round(mainSize * 0.7);
-  const lh = Math.round(mainSize * (1 + lineGap));
+  const lh = (s) => Math.ceil(s * 1.15);
+  const gap = gapPx ?? Math.max(10, Math.round(Math.min(homeSize, awaySize) * 0.18));
 
-  // Outline (du kan sänka om du vill)
-  const owHome = Math.max(2, Math.round(homeSize * 0.07));
-  const owVs = Math.max(2, Math.round(vsSize * 0.09));
-  const owAway = Math.max(2, Math.round(awaySize * 0.07));
+  ctx.save();
+  ctx.fillStyle = "#FFFFFF";
+  ctx.textBaseline = "top";
 
-  // HOME
   ctx.font = homeTpl.replace("{size}", homeSize);
-  fillTextWithOutline(home, centeredX(home, centerX), y, "#FFFFFF", "#000000", owHome);
+  ctx.fillText(home, centeredX(home, centerX), y);
 
-  // VS
-  const vsY = y + lh;
+  const vsY = y + lh(homeSize) + gap;
+
   ctx.font = vsTpl.replace("{size}", vsSize);
-  fillTextWithOutline("VS", centeredX("VS", centerX), vsY, "#FFFFFF", "#000000", owVs);
+  ctx.fillText("VS", centeredX("VS", centerX), vsY);
 
-  // AWAY
-  const awayY = vsY + lh;
+  const awayY = vsY + lh(vsSize) + gap;
+
   ctx.font = awayTpl.replace("{size}", awaySize);
-  fillTextWithOutline(away, centeredX(away, centerX), awayY, "#FFFFFF", "#000000", owAway);
+  ctx.fillText(away, centeredX(away, centerX), awayY);
 
-  return awayY;
+  ctx.restore();
+  return awayY + lh(awaySize);
 }
 
 function draw() {
@@ -407,7 +427,10 @@ function draw() {
 
   const date = formatDate(el("date")?.value);
   const time = el("time")?.value || "";
-  const venue = ((el("venue")?.value) || "").trim() || "";
+
+  const venue = (homeTeam || "").trim().toLowerCase().startsWith("säters if fk")
+    ? (((el("venue")?.value) || "").trim() || "")
+    : null;
 
   const cx = Math.round(W / 2);
 
@@ -424,14 +447,14 @@ function draw() {
   }
 
   // ===== BANNER TOPP =====
-  const bannerH = Math.round(H * 0.16);
+  const bannerH = Math.round(H * 0.18);
   ctx.fillStyle = COLORS.blue;
   ctx.fillRect(0, 0, W, bannerH);
 
   const bannerText = ((el("bannerText")?.value) || "").trim().toUpperCase() || "MATCHDAG";
   const bannerBaseSize = Math.round(Math.min(W, H) * 0.13 * FONT_SCALE);
   const bannerMinSize = 18;
-  const bannerTpl = `900 {size}px "Inter", system-ui`;
+  const bannerTpl = `900 {size}px "Segoe UI", system-ui`;
   const bannerSize = fitText(bannerText, Math.round(W * 0.9), bannerBaseSize, bannerMinSize, bannerTpl);
 
   ctx.fillStyle = COLORS.white;
@@ -455,11 +478,11 @@ function draw() {
   const homeLogoX = Math.round(homeCenterX - logoSize / 2);
   const awayLogoX = Math.round(awayCenterX - logoSize / 2);
 
-  if (state.homeLogo) {
-    drawCover(state.homeLogo, homeLogoX, logosY, logoSize, logoSize, 1);
+  const homeToDraw = state.homeLogo || state.placeholderLogo;
+  if (homeToDraw) {
+    drawCover(homeToDraw, homeLogoX, logosY, logoSize, logoSize, 1);
   }
 
-  // fix: korrekt OR för placeholder
   const awayToDraw = state.awayLogo || state.placeholderLogo;
   if (awayToDraw) {
     drawCover(awayToDraw, awayLogoX, logosY, logoSize, logoSize, 1);
@@ -477,18 +500,6 @@ function draw() {
     away: awayTeam.toUpperCase(),
   });
 
-  // Underline
-  ctx.save();
-  ctx.strokeStyle = "rgba(1,56,136,1)";
-  ctx.lineWidth = Math.max(6, Math.round(Math.min(W, H) * 0.005));
-  const ulW = Math.round(maxTitleWidth * 0.9);
-  const ulY = titleBottomY + Math.round(H * 0.035);
-  ctx.beginPath();
-  ctx.moveTo(cx - ulW / 2, ulY);
-  ctx.lineTo(cx + ulW / 2, ulY);
-  ctx.stroke();
-  ctx.restore();
-
   // ===== FOOTER (full bredd) =====
   const infoParts = [date, time, venue].filter(Boolean);
   const infoText = infoParts.join(" • ");
@@ -502,7 +513,7 @@ function draw() {
   const footerText = infoText.toUpperCase();
   const footerBaseSize = Math.round(Math.min(W, H) * 0.07 * FONT_SCALE);
   const footerMinSize = 16;
-  const footerTpl = `900 {size}px "Bebas Neue", system-ui`;
+  const footerTpl = `900 {size}px "Arial", system-ui`;
   
   const footerSize = fitText(footerText, Math.round(W * 0.95), footerBaseSize, footerMinSize, footerTpl);
 
@@ -542,6 +553,21 @@ el("downloadBtn")?.addEventListener("click", () => {
   }, "image/png");
 });
 
+el("homeLogo")?.addEventListener("change", async () => {
+  await handleFiles();
+  draw();
+});
+
+el("awayLogo")?.addEventListener("change", async () => {
+  await handleFiles();
+  draw();
+});
+
+el("homeTeam")?.addEventListener("input", async () => {
+  await autoLoadHomeLogo();
+  draw();
+});
+
 el("awayTeam")?.addEventListener("input", async () => {
   await autoLoadAwayLogo();
   draw();
@@ -565,8 +591,10 @@ el("bgSelect")?.addEventListener("change", async () => {
   ensureBackgroundSelectPopulated();
   if (el("bgSelect")) await applySelectedBackground();
 
-  // Viktigt: ladda logos (inkl placeholder) innan första draw
+  // Ladda logos (inkl placeholder) innan första draw
   await handleFiles();
+  await autoLoadHomeLogo();
+  await autoLoadAwayLogo();
 
   // Ladda och parsa CSV automatiskt
   try {
