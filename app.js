@@ -15,7 +15,6 @@ const state = {
 
 const COLORS = {
   blue: "#013888",
-  black: "#000000",
   white: "#FFFFFF",
   offwhite: "#F4F2EE",
 };
@@ -146,7 +145,7 @@ function parseMatchesFromYourCSV(text) {
   if (lines.length < 2) return [];
 
   // Förväntat: semikolonseparerat med header:
-  // MatchNr;Omg;Hemmalag;Bortalag;Datum/Tid;Resultat
+  // MatchNr;Omg;Hemmalag;Bortalag;Datum/Tid;Plats
   const header = lines[0].split(";").map(s => s.trim().toLowerCase());
   const iHome = header.indexOf("hemmalag");
   const iAway = header.indexOf("bortalag");
@@ -191,9 +190,9 @@ const BACKGROUNDS = [
   { id: "bg1", label: "Gräs", url: "assets/bg/blue_grass.png" },
   { id: "bg2", label: "Fotboll", url: "assets/bg/football.png" },
   { id: "bg3", label: "Trävägg", url: "assets/bg/blue_wood.png" },
-  { id: "bg4", label: "Tröja", url: "assets/bg/shirt.png" },
-  { id: "bg5", label: "Blåvit pensel", url: "assets/bg/blue_white.png" },
-  { id: "bg6", label: "Blåvit dimma", url: "assets/bg/blue_mist.png" },
+  { id: "bg4", label: "Säters IP", url: "assets/bg/saters_ip.png" },
+  { id: "bg5", label: "Tröja", url: "assets/bg/shirt.png" },
+  { id: "bg6", label: "Blåvit pensel", url: "assets/bg/blue_white.png" },
 ];
 
 function ensureBackgroundSelectPopulated() {
@@ -448,28 +447,42 @@ function draw() {
   }
 
   // ===== BANNER TOPP =====
-  const bannerH = Math.round(H * 0.18);
-  ctx.fillStyle = COLORS.blue;
-  ctx.fillRect(0, 0, W, bannerH);
-
+  const bannerH = Math.round(H * 0.15);
   const bannerText = ((el("bannerText")?.value) || "").trim().toUpperCase() || "MATCHDAG";
+  
   const bannerBaseSize = Math.round(Math.min(W, H) * 0.13 * FONT_SCALE);
   const bannerMinSize = 18;
   const bannerTpl = `900 {size}px "Segoe UI", system-ui`;
-  const bannerSize = fitText(bannerText, Math.round(W * 0.9), bannerBaseSize, bannerMinSize, bannerTpl);
-
+  const bannerSize = fitText(
+    bannerText,
+    Math.round(W * 0.9),
+    bannerBaseSize,
+    bannerMinSize,
+    bannerTpl
+  );
+  
+  // ===== ROTERAD BANNER =====
+  const angle = -4 * Math.PI / 180;
+  
+  ctx.save();
+  ctx.translate(cx, bannerH * 0.9);
+  ctx.rotate(angle);
+  
+  ctx.fillStyle = COLORS.blue;
+  ctx.fillRect(-W * 0.6, -bannerH / 2, W * 1.2, bannerH);
+  
+  // Textinställningar
   ctx.fillStyle = COLORS.white;
   ctx.font = bannerTpl.replace("{size}", bannerSize);
-
-  // --- MATCHDAG: perfekt centrerad i bannern ---
-  ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(bannerText, cx, Math.round(bannerH / 2));
+  
+  ctx.fillText(bannerText, 0, 0);
+  
   ctx.restore();
 
   // ===== LOGGOR (låsta positioner) =====
-  const contentTop = bannerH + Math.round(H * 0.06);
+  const contentTop = bannerH + Math.round(H * 0.12);
   const logoSize = Math.round(Math.min(W, H) * 0.25);
   const logosY = contentTop;
 
@@ -490,7 +503,7 @@ function draw() {
   }
 
   // ===== MATCHUP =====
-  const titleY = contentTop + logoSize + Math.round(H * 0.11);
+  const titleY = contentTop + logoSize + Math.round(H * 0.08);
   const maxTitleWidth = Math.round(W * 0.82);
 
   const titleBottomY = drawMatchupStackedCentered({
