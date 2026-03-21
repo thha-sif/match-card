@@ -115,6 +115,7 @@ async function applyMatchToForm(m) {
 
   el("homeTeam").value = m.home;
   el("awayTeam").value = m.away;
+  el("venue").value = m.venue;
 
   if (m.date) el("date").value = m.date;   // YYYY-MM-DD
   if (m.time) el("time").value = m.time;   // HH:MM
@@ -150,8 +151,9 @@ function parseMatchesFromYourCSV(text) {
   const iHome = header.indexOf("hemmalag");
   const iAway = header.indexOf("bortalag");
   const iDT = header.indexOf("datum/tid");
+  const iVenue = header.indexOf("plats");
 
-  if (iHome === -1 || iAway === -1 || iDT === -1) return [];
+  if (iHome === -1 || iAway === -1 || iDT === -1 || iVenue === -1) return [];
 
   const matches = [];
 
@@ -162,6 +164,7 @@ function parseMatchesFromYourCSV(text) {
     const home = cols[iHome];
     const away = cols[iAway];
     const dt = cols[iDT]; // "2026-04-24 19:00"
+    const venue = cols[iVenue]; // "Säters IP"
 
     if (!home || !away) continue;
 
@@ -175,7 +178,7 @@ function parseMatchesFromYourCSV(text) {
       time = parts[1] || "";
     }
 
-    matches.push({ home, away, date, time });
+    matches.push({ home, away, date, time, venue });
   }
 
   return matches;
@@ -428,9 +431,7 @@ function draw() {
   const date = formatDate(el("date")?.value);
   const time = el("time")?.value || "";
 
-  const venue = (homeTeam || "").trim().toLowerCase().startsWith("säters if fk")
-    ? (((el("venue")?.value) || "").trim() || "")
-    : null;
+  const venue = ((el("venue")?.value) || "").trim();
 
   const cx = Math.round(W / 2);
 
