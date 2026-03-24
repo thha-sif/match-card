@@ -3,13 +3,19 @@ const el = (id) => document.getElementById(id);
 const canvas = el("card");
 const ctx = canvas.getContext("2d");
 
-const FONT_SCALE = 1.18; // justera globalt för att finjustera textstorlekar
+const FONT_SCALE = 1.18;
+const SCORE_FONT_SIZE = 220;
+const SCORERS_FONT_SIZE = 34;   // fixed size for scorers
+const SCORERS_LINE_GAP = 8;
+const SCORERS_MAX_ROWS = 5;
+const SCORERS_TOP_GAP = 20;     // fixed gap from score to first scorer
 
 const state = {
   homeLogo: null,
   awayLogo: null,
   placeholderLogo: null,
   bg: null,
+  finalBg: null,
   bgMode: "preset",
 };
 
@@ -17,7 +23,12 @@ const COLORS = {
   blue: "#013888",
   white: "#FFFFFF",
   offwhite: "#F4F2EE",
+  midgray: "#C5C0B7",
+  woodred: "#B4552C",
+  green: "#23513C",
 };
+
+let activeTemplate = "match";
 
 function getSelectedFormat() {
   const select = el("format");
@@ -27,7 +38,7 @@ function getSelectedFormat() {
 }
 
 function slugify(s) {
-  return s
+  return (s || "")
     .toLowerCase()
     .replace(/å/g, "a")
     .replace(/ä/g, "a")
@@ -78,10 +89,16 @@ function loadFileImage(file) {
   });
 }
 
+/* =========================
+   CSV (oförändrat flöde)
+   ========================= */
+
 let csvMatches = [];
 
 function fillMatchSelect(matches) {
   const sel = el("matchSelect");
+  if (!sel) return;
+
   sel.innerHTML = "";
 
   if (!matches.length) {
@@ -108,20 +125,84 @@ function fillMatchSelect(matches) {
   });
 }
 
-
 async function applyMatchToForm(m) {
   if (!m) return;
 
-  el("homeTeam").value = m.home;
-  el("awayTeam").value = m.away;
-  el("venue").value = m.venue;
+  el("homeTeam").value = m.home || "";
+  el("awayTeam").value = m.away || "";
+  if (el("venue")) el("venue").value = m.venue || "";
 
-  if (m.date) el("date").value = m.date;   // YYYY-MM-DD
-  if (m.time) el("time").value = m.time;   // HH:MM
+  if (m.date && el("date")) el("date").value = m.date;
+  if (m.time && el("time")) el("time").value = m.time;
 
   await autoLoadHomeLogo();
   await autoLoadAwayLogo();
   draw();
+}
+
+function parseMatchesFromYourCSV(text) {
+  const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim().split("\n");
+  if (lines.length < 2) return [];
+
+  const header = lines[0].split(";").map(s => s.trim().toLowerCase());
+  const iHome = header.indexOf("hemmalag");
+  const iAway = header.indexOf("bortalag");
+  const iDT = header.indexOf("datum/tid");
+  const iVenue = header.indexOf("plats"); // kan saknas
+
+  if (iHome === -1 || iAway === -1 || iDT === -1) return [];
+
+  const matches = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(";").map(s => (s ?? "").trim());
+    const home = cols[iHome] || "";
+    const away = cols[iAway] || "";
+    const dt = cols[iDT] || "";
+    const venue = iVenue !== -1 ? (cols[iVenue] || "") : "";
+
+    if (!home || !away) continue;
+
+    let date = "";
+    let time = "";
+    if (dt) {
+      const parts = dt.split(/\s+/);
+      date = parts[0] || "";
+      time = parts[1] || "";
+    }
+
+    matches.push({ home, away, date, time, venue });
+  }
+
+  return matches;
+}
+
+function getScorerLinesFromGrid(side) {
+  const out = [];
+
+  for (let i = 0; i < SCORERS_MAX_ROWS; i++) {
+    const name = (document.querySelector(`.scorerName[data-side="${side}"][data-row="${i}"]`)?.value || "").trim();
+    let min = (document.querySelector(`.scorerMin[data-side="${side}"][data-row="${i}"]`)?.value || "").trim();
+
+    if (!name) continue;
+
+    min = normalizeMinutes(min);
+
+    if (min) out.push(`${name} ${min}`);
+    else out.push(name);
+  }
+
+  return out;
+}
+
+function parseScorers(text) {
+  return (text || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .split("\n")
+    .map(s => s.trim())
+    .filter(Boolean)
+    .slice(0, SCORERS_MAX_ROWS);
 }
 
 el("loadCsvBtn")?.addEventListener("click", async (e) => {
@@ -140,53 +221,11 @@ el("matchSelect")?.addEventListener("change", async () => {
   await applyMatchToForm(csvMatches[idx]);
 });
 
-function parseMatchesFromYourCSV(text) {
-  const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim().split("\n");
-  if (lines.length < 2) return [];
+/* =========================
+   BACKGROUNDS
+   ========================= */
 
-  // Förväntat: semikolonseparerat med header:
-  // MatchNr;Omg;Hemmalag;Bortalag;Datum/Tid;Plats
-  const header = lines[0].split(";").map(s => s.trim().toLowerCase());
-  const iHome = header.indexOf("hemmalag");
-  const iAway = header.indexOf("bortalag");
-  const iDT = header.indexOf("datum/tid");
-  const iVenue = header.indexOf("plats");
-
-  if (iHome === -1 || iAway === -1 || iDT === -1 || iVenue === -1) return [];
-
-  const matches = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(";").map(s => (s ?? "").trim());
-    if (cols.length < header.length) continue;
-
-    const home = cols[iHome];
-    const away = cols[iAway];
-    const dt = cols[iDT]; // "2026-04-24 19:00"
-    const venue = cols[iVenue]; // "Säters IP"
-
-    if (!home || !away) continue;
-
-    let date = "";
-    let time = "";
-
-    if (dt) {
-      // delar på mellanslag: YYYY-MM-DD HH:MM
-      const parts = dt.split(/\s+/);
-      date = parts[0] || "";
-      time = parts[1] || "";
-    }
-
-    matches.push({ home, away, date, time, venue });
-  }
-
-  return matches;
-}
-
-/**
- * Valbara bakgrunder (assets/bg/...)
- */
-const BACKGROUNDS = [
+const BACKGROUNDS_MATCH = [
   { id: "bg1", label: "Gräs", url: "assets/bg/blue_grass.png" },
   { id: "bg2", label: "Fotboll", url: "assets/bg/football.png" },
   { id: "bg3", label: "Trävägg", url: "assets/bg/blue_wood.png" },
@@ -195,18 +234,36 @@ const BACKGROUNDS = [
   { id: "bg6", label: "Blåvit pensel", url: "assets/bg/blue_white.png" },
 ];
 
+const BACKGROUNDS_FINAL = [
+  { id: "f1", label: "Säters IP", url: "assets/bg/saters_ip.png" },
+  { id: "f2", label: "Tröja", url: "assets/bg/shirt.png" },
+  { id: "f3", label: "Säter Ultras", url: "assets/bg/ultras.png" },
+  { id: "f4", label: "Match herr", url: "assets/bg/game_m.png" },
+  { id: "f5", label: "Match dam", url: "assets/bg/game_w.png" },
+  { id: "f6", label: "Max", url: "assets/bg/max.png" },
+];
+
+function getActiveBackgroundList() {
+  return activeTemplate === "final" ? BACKGROUNDS_FINAL : BACKGROUNDS_MATCH;
+}
+
 function ensureBackgroundSelectPopulated() {
   const sel = el("bgSelect");
   if (!sel) return;
-  if (sel.options && sel.options.length > 0) return;
 
-  for (const bg of BACKGROUNDS) {
+  const list = getActiveBackgroundList();
+
+  const prev = sel.value;
+
+  sel.innerHTML = "";
+  for (const bg of list) {
     const opt = document.createElement("option");
     opt.value = bg.id;
     opt.textContent = bg.label;
     sel.appendChild(opt);
   }
-  sel.value = "bg1";
+  
+  sel.value = list.some(b => b.id === prev) ? prev : (list[0]?.id || "");
 }
 
 async function applySelectedBackground() {
@@ -214,9 +271,8 @@ async function applySelectedBackground() {
   if (!sel) return;
 
   const choice = sel.value;
-  const bg = BACKGROUNDS.find((b) => b.id === choice);
+  const bg = getActiveBackgroundList().find((b) => b.id === choice);
 
-  // fix: korrekt OR-logik
   if (!bg || !bg.url) {
     state.bg = null;
     state.bgMode = "preset";
@@ -232,6 +288,10 @@ async function applySelectedBackground() {
     state.bgMode = "preset";
   }
 }
+
+/* =========================
+   Logos (samma logik)
+   ========================= */
 
 let lastHomeKey = "";
 let lastAwayKey = "";
@@ -275,6 +335,12 @@ async function handleFiles() {
       state.awayLogo = await loadFileImage(awayFile);
     }
   }
+
+  const finalBgInput = el("finalBackground");
+  const finalBgFile = finalBgInput?.files?.[0];
+  if (finalBgFile) {
+    state.finalBg = await loadFileImage(finalBgFile);
+  }
 }
 
 async function autoLoadHomeLogo() {
@@ -295,12 +361,10 @@ async function autoLoadHomeLogo() {
 
   const file = teamToLogoFilename(homeTeam);
   const url = `assets/logo/${file}`;
-  console.log("homeTeam:", homeTeam, "=>", file, "URL:", url);
 
   try {
     state.homeLogo = await loadImageFromURL(url);
   } catch (e) {
-    console.warn("Misslyckades ladda:", url, e);
     state.homeLogo = null;
   }
 }
@@ -323,15 +387,17 @@ async function autoLoadAwayLogo() {
 
   const file = teamToLogoFilename(awayTeam);
   const url = `assets/logo/${file}`;
-  console.log("awayTeam:", awayTeam, "=>", file, "URL:", url);
 
   try {
     state.awayLogo = await loadImageFromURL(url);
   } catch (e) {
-    console.warn("Misslyckades ladda:", url, e);
     state.awayLogo = null;
   }
 }
+
+/* =========================
+   Drawing helpers
+   ========================= */
 
 function formatDate(dateStr) {
   if (!dateStr) return "";
@@ -339,8 +405,32 @@ function formatDate(dateStr) {
   return d.toLocaleDateString("sv-SE", { weekday: "short", day: "2-digit", month: "short" });
 }
 
+function normalizeMinutes(raw) {
+  const s = (raw || "").trim();
+  if (!s) return "";
+
+  const tokens = s
+    .replace(/[,;]+/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+
+  const out = [];
+  for (const t of tokens) {
+    // matchar "12", "90+2", "105+1" osv (tar även bort ev. apostrof/andra tecken efter)
+    const m = t.match(/^(\d+)(?:\+(\d+))?/);
+    if (!m) continue;
+
+    const base = m[1];
+    const extra = m[2];
+    out.push(extra ? `${base}+${extra}'` : `${base}'`);
+  }
+
+  return out.join(", ");
+}
+
 function drawCover(img, x, y, w, h, alpha = 1) {
   if (!img) return;
+
   ctx.save();
   ctx.globalAlpha = alpha;
 
@@ -365,6 +455,25 @@ function drawCover(img, x, y, w, h, alpha = 1) {
   ctx.restore();
 }
 
+function drawFixedHeightCentered(img, centerX, y, height = 280, alpha = 1) {
+  if (!img) return;
+  const w = Math.round(height * (img.width / img.height));
+  const x = Math.round(centerX - w / 2);
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(img, x, y, w, height);
+  ctx.restore();
+}
+
+function drawFixedHeight(img, x, y, height = 280, alpha = 1) {
+  if (!img) return;
+  const w = Math.round(height * (img.width / img.height));
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(img, x, y, w, height);
+  ctx.restore();
+}
+
 function fitText(text, maxWidth, startSize, minSize, fontTemplate) {
   let size = startSize;
   while (size >= minSize) {
@@ -380,108 +489,107 @@ function centeredX(text, centerX) {
   return Math.round(centerX - w / 2);
 }
 
-function drawMatchupStackedCentered({ centerX, y, maxWidth, home, away, vsPx = 56, gapPx = null }) {
-  const fontFamily = "Segoe UI, system-ui";
-  const base = Math.round(Math.min(canvas.width, canvas.height) * 0.12 * FONT_SCALE);
-  const minSize = 18;
+function drawContainMaxH(img, x, y, w, h, maxH = 280, alpha = 1) {
+  if (!img) return;
 
-  const homeTpl = `900 {size}px ${fontFamily}`;
-  const awayTpl = `900 {size}px ${fontFamily}`;
-  const vsTpl = `900 {size}px ${fontFamily}`;
-
-  const homeSize = fitText(home, maxWidth, base, minSize, homeTpl);
-  const awaySize = fitText(away, maxWidth, base, minSize, awayTpl);
-  const vsSize = Math.max(12, Math.round(vsPx));
-
-  const lh = (s) => Math.ceil(s * 1.15);
-  const gap = gapPx ?? Math.max(10, Math.round(Math.min(homeSize, awaySize) * 0.18));
+  const targetH = Math.min(h, maxH);
+  const targetY = Math.round(y + (h - targetH) / 2);
 
   ctx.save();
-  ctx.fillStyle = "#FFFFFF";
-  ctx.textBaseline = "top";
+  ctx.globalAlpha = alpha;
 
-  ctx.font = homeTpl.replace("{size}", homeSize);
-  ctx.fillText(home, centeredX(home, centerX), y);
+  const ir = img.width / img.height;
+  const rr = w / targetH;
 
-  const vsY = y + lh(homeSize) + gap;
+  let dw, dh, dx, dy;
 
-  ctx.font = vsTpl.replace("{size}", vsSize);
-  ctx.fillText("VS", centeredX("VS", centerX), vsY);
+  if (ir > rr) {
+    dw = w;
+    dh = w / ir;
+    dx = x;
+    dy = Math.round(targetY + (targetH - dh) / 2);
+  } else {
+    dh = targetH;
+    dw = targetH * ir;
+    dx = Math.round(x + (w - dw) / 2);
+    dy = targetY;
+  }
 
-  const awayY = vsY + lh(vsSize) + gap;
-
-  ctx.font = awayTpl.replace("{size}", awaySize);
-  ctx.fillText(away, centeredX(away, centerX), awayY);
-
+  ctx.drawImage(img, dx, dy, dw, dh);
   ctx.restore();
-  return awayY + lh(awaySize);
 }
 
-function draw() {
-  setCanvasSizeFromFormat();
+function wrapLines(text, maxWidth) {
+  const words = (text || "").split(/\s+/).filter(Boolean);
+  const lines = [];
+  let line = "";
 
-  const W = canvas.width;
-  const H = canvas.height;
+  for (const w of words) {
+    const test = line ? (line + " " + w) : w;
+    if (ctx.measureText(test).width <= maxWidth) {
+      line = test;
+    } else {
+      if (line) lines.push(line);
+      line = w;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
 
-  // fix: korrekt fallback med ||
-  const homeTeam = ((el("homeTeam")?.value) || "").trim() || "Hemmalag";
-  const awayTeam = ((el("awayTeam")?.value) || "").trim() || "Bortalag";
+/* =========================
+   Shared components
+   ========================= */
 
-  const date = formatDate(el("date")?.value);
-  const time = el("time")?.value || "";
-
-  const venue = ((el("venue")?.value) || "").trim();
-
-  const cx = Math.round(W / 2);
-
-  // ===== HELA YTAN =====
+function drawBase(W, H) {
   ctx.clearRect(0, 0, W, H);
-
-  // Bas
   ctx.fillStyle = COLORS.offwhite;
   ctx.fillRect(0, 0, W, H);
 
-  // Bakgrund
-  if (state.bg) {
-    drawCover(state.bg, 0, 0, W, H);
+  const useFinal = (activeTemplate === "final" && state.finalBg);
+  const bgToDraw = useFinal ? state.finalBg : state.bg;
+
+  if (bgToDraw) {
+    if (useFinal) ctx.filter = "saturate(0.55) contrast(1.05)";
+    drawCover(bgToDraw, 0, 0, W, H);
+    ctx.filter = "none";
   }
 
-  // ===== BANNER TOPP =====
+  if (useFinal) {
+    ctx.fillStyle = "rgba(1,56,136,0.45)";
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+
+function drawBanner(W, H, cx, text) {
   const bannerH = Math.round(H * 0.15);
-  const bannerText = ((el("bannerText")?.value) || "").trim().toUpperCase() || "MATCHDAG";
-  
+  const bannerText = (text || "MATCHDAG").trim().toUpperCase();
+
   const bannerBaseSize = Math.round(Math.min(W, H) * 0.13 * FONT_SCALE);
-  const bannerMinSize = 18;
   const bannerTpl = `900 {size}px "Segoe UI", system-ui`;
-  const bannerSize = fitText(
-    bannerText,
-    Math.round(W * 0.9),
-    bannerBaseSize,
-    bannerMinSize,
-    bannerTpl
-  );
-  
-  // ===== ROTERAD BANNER =====
+  const bannerSize = fitText(bannerText, Math.round(W * 0.9), bannerBaseSize, 18, bannerTpl);
+
   const angle = -4 * Math.PI / 180;
-  
+
   ctx.save();
   ctx.translate(cx, bannerH * 0.9);
   ctx.rotate(angle);
-  
+
   ctx.fillStyle = COLORS.blue;
   ctx.fillRect(-W * 0.6, -bannerH / 2, W * 1.2, bannerH);
-  
-  // Textinställningar
+
   ctx.fillStyle = COLORS.white;
   ctx.font = bannerTpl.replace("{size}", bannerSize);
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  
   ctx.fillText(bannerText, 0, 0);
-  
+
   ctx.restore();
 
-  // ===== LOGGOR (låsta positioner) =====
+  return bannerH;
+}
+
+function drawLogosLocked(W, H, bannerH) {
   const contentTop = bannerH + Math.round(H * 0.12);
   const logoSize = Math.round(Math.min(W, H) * 0.25);
   const logosY = contentTop;
@@ -493,20 +601,85 @@ function draw() {
   const awayLogoX = Math.round(awayCenterX - logoSize / 2);
 
   const homeToDraw = state.homeLogo || state.placeholderLogo;
-  if (homeToDraw) {
-    drawCover(homeToDraw, homeLogoX, logosY, logoSize, logoSize, 1);
-  }
-
   const awayToDraw = state.awayLogo || state.placeholderLogo;
-  if (awayToDraw) {
-    drawCover(awayToDraw, awayLogoX, logosY, logoSize, logoSize, 1);
-  }
 
-  // ===== MATCHUP =====
-  const titleY = contentTop + logoSize + Math.round(H * 0.08);
+  const homeCX = Math.round(W * (2 / 7));
+  const awayCX = Math.round(W * (5 / 7));
+
+  if (homeToDraw) drawFixedHeightCentered(homeToDraw, homeCX, logosY, 280, 1);
+  if (awayToDraw) drawFixedHeightCentered(awayToDraw, awayCX, logosY, 280, 1);
+
+  return { contentTop, logoSize, logosY };
+}
+
+function drawFooterBar(W, H, cx, text) {
+  const footerH = Math.round(H * 0.10);
+  const footerY = H - footerH;
+
+  ctx.fillStyle = COLORS.blue;
+  ctx.fillRect(0, footerY, W, footerH);
+
+  const footerText = (text || " ").toUpperCase();
+  const footerBaseSize = Math.round(Math.min(W, H) * 0.07 * FONT_SCALE);
+  const footerTpl = `900 {size}px "Arial", system-ui`;
+  const footerSize = fitText(footerText, Math.round(W * 0.95), footerBaseSize, 16, footerTpl);
+
+  ctx.fillStyle = COLORS.white;
+  ctx.font = footerTpl.replace("{size}", footerSize);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText(footerText, centeredX(footerText, cx), footerY + Math.round(footerH * 0.64));
+
+  return { footerY, footerH };
+}
+
+function drawMatchupStackedCentered({ centerX, y, maxWidth, home, away, vsPx = 56, gapPx = null }) {
+  const fontFamily = `"Segoe UI", system-ui`;
+  const base = Math.round(Math.min(canvas.width, canvas.height) * 0.12 * FONT_SCALE);
+  const minSize = 18;
+
+  const homeTpl = `900 {size}px ${fontFamily}`;
+  const awayTpl = `900 {size}px ${fontFamily}`;
+  const vsTpl = `900 {size}px ${fontFamily}`;
+
+  const homeSize = fitText(home, maxWidth, base, minSize, homeTpl);
+  const awaySize = fitText(away, maxWidth, base, minSize, awayTpl);
+  const vsSize = Math.max(12, Math.round(vsPx));
+
+  const lh = (s) => Math.ceil(s * 0.8);
+  const gap = gapPx ?? vsSize;
+
+  ctx.save();
+  ctx.fillStyle = COLORS.white;
+  ctx.textBaseline = "top";
+
+  ctx.font = homeTpl.replace("{size}", homeSize);
+  ctx.fillText(home, centeredX(home, centerX), y);
+
+  const vsY = y + lh(homeSize) + gap;
+  ctx.font = vsTpl.replace("{size}", vsSize);
+  ctx.fillText("VS", centeredX("VS", centerX), vsY);
+
+  const awayY = vsY + lh(vsSize) + gap;
+  ctx.font = awayTpl.replace("{size}", awaySize);
+  ctx.fillText(away, centeredX(away, centerX), awayY);
+
+  ctx.restore();
+  return awayY + lh(awaySize);
+}
+
+/* =========================
+   Templates
+   ========================= */
+
+function drawTemplateMatch(W, H, cx, bannerH, logosMeta) {
+  const homeTeam = ((el("homeTeam")?.value) || "").trim() || "Hemmalag";
+  const awayTeam = ((el("awayTeam")?.value) || "").trim() || "Bortalag";
+
+  const titleY = logosMeta.contentTop + logosMeta.logoSize + Math.round(H * 0.08);
   const maxTitleWidth = Math.round(W * 0.82);
 
-  const titleBottomY = drawMatchupStackedCentered({
+  drawMatchupStackedCentered({
     centerX: cx,
     y: titleY,
     maxWidth: maxTitleWidth,
@@ -514,31 +687,264 @@ function draw() {
     away: awayTeam.toUpperCase(),
   });
 
-  // ===== FOOTER (full bredd) =====
-  const infoParts = [date, time, venue].filter(Boolean);
-  const infoText = infoParts.join(" • ");
+  const date = formatDate(el("date")?.value);
+  const time = el("time")?.value || "";
+  const venue = ((el("venue")?.value) || "").trim();
 
-  const footerH = Math.round(H * 0.10);
-  const footerY = H - footerH;
+  const infoText = [date, time, venue].filter(Boolean).join(" • ");
+  drawFooterBar(W, H, cx, infoText);
+}
 
+function drawTemplateFinal(W, H, cx, bannerH, logosMeta) {
+  const hs = (el("homeScore")?.value || "").trim() || "0";
+  const as = (el("awayScore")?.value || "").trim() || "0";
+  const scoreText = `${hs}-${as}`;
+
+  const baseTop = (logosMeta && typeof logosMeta.contentTop === "number" && typeof logosMeta.logoSize === "number")
+    ? (logosMeta.contentTop + logosMeta.logoSize)
+    : (bannerH + Math.round(H * 0.22));
+
+  const scoreY = baseTop + Math.round(H * 0.25);
+
+  ctx.save();
+
+  // Score (fast font-size)
+  ctx.font = `900 ${SCORE_FONT_SIZE}px "Segoe UI", system-ui`;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+
+  const textW = ctx.measureText(scoreText).width;
+  const padY = Math.round(SCORE_FONT_SIZE * 0.16);
+
+  const boxX = 0;
+  const boxW = W;
+  const boxH = Math.round(SCORE_FONT_SIZE + padY * 2);
+  const boxY = Math.round(scoreY - padY);
+
+  // Bård bakom score (halvtransparent offwhite)
+  ctx.fillStyle = "rgba(244,242,238,0.65)"; // #F4F2EE med alpha (din offwhite)
+  ctx.fillRect(boxX, boxY, boxW, boxH);
+
+  // Små loggor i score-bården (ovanpå fillRect)
+  const homeLogo = state.homeLogo || state.placeholderLogo;
+  const awayLogo = state.awayLogo || state.placeholderLogo;
+
+  const scoreLeftX = Math.round(cx - textW / 2); // vänsterkant för scoreText
+  const smallLogo = Math.round(SCORE_FONT_SIZE * 0.62); // mindre loggor
+  const logoGap = Math.round(SCORE_FONT_SIZE * 0.25);   // avstånd till siffror
+  const logoY = Math.round(boxY + (boxH - smallLogo) / 2);
+
+  // Mät delarna för att hitta var hemmasiffran/bortasiffran ligger
+  const hsW = ctx.measureText(hs).width;
+  const dashW = ctx.measureText("–").width;
+  const asW = ctx.measureText(as).width;
+
+  // Hemmalogga: vänster om hemmasiffran
+  const homeLogoX = Math.round(scoreLeftX - logoGap - smallLogo);
+
+  // Bortalogga: höger om bortasiffran
+  const awayLogoX = Math.round(scoreLeftX + hsW + dashW + asW + logoGap);
+
+  if (homeLogo) drawCover(homeLogo, homeLogoX, logoY, smallLogo, smallLogo, 1);
+  if (awayLogo) drawCover(awayLogo, awayLogoX, logoY, smallLogo, smallLogo, 1);
+
+  // Score text ovanpå (blå)
   ctx.fillStyle = COLORS.blue;
-  ctx.fillRect(0, footerY, W, footerH);
+  ctx.fillText(scoreText, Math.round(cx - textW / 2), scoreY);
 
-  const footerText = infoText.toUpperCase();
-  const footerBaseSize = Math.round(Math.min(W, H) * 0.07 * FONT_SCALE);
-  const footerMinSize = 16;
-  const footerTpl = `900 {size}px "Arial", system-ui`;
-  
-  const footerSize = fitText(footerText, Math.round(W * 0.95), footerBaseSize, footerMinSize, footerTpl);
+  // Startpunkt för målskyttar / alternativtext
+  const listY = boxY + boxH + SCORERS_TOP_GAP;
+
+  const msg = (el("finalMessage")?.value || "").trim();
+
+  // Om alternativtext finns -> visa den istället för målskyttar
+  if (msg) {
+    const msgTpl = `800 {size}px "Segoe UI", system-ui`;
+    const msgBase = Math.round(Math.min(W, H) * 0.06);
+    const msgSize = fitText(msg, Math.round(W * 0.92), msgBase, 18, msgTpl);
+
+    ctx.fillStyle = COLORS.white;
+    ctx.font = msgTpl.replace("{size}", msgSize);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.fillText(msg, cx, (listY * 1.08));
+
+    ctx.restore();
+    return;
+  }
+
+  const homeLines = getScorerLinesFromGrid("home");
+  const awayLines = getScorerLinesFromGrid("away");
+
+  const homeCenterX = Math.round(W * 0.12);
+  const awayCenterX = Math.round(W * 0.58);
+
+  const lineH = SCORERS_FONT_SIZE + SCORERS_LINE_GAP;
 
   ctx.fillStyle = COLORS.white;
-  ctx.font = footerTpl.replace("{size}", footerSize);
-  ctx.fillText(footerText, centeredX(footerText, cx), footerY + Math.round(footerH * 0.64));
+  ctx.font = `700 ${SCORERS_FONT_SIZE}px "Segoe UI", system-ui`;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+
+  for (let i = 0; i < SCORERS_MAX_ROWS; i++) {
+    const y = listY + i * lineH;
+
+    if (homeLines[i]) ctx.fillText(homeLines[i], homeCenterX, y);
+    if (awayLines[i]) ctx.fillText(awayLines[i], awayCenterX, y);
+  }
+
+  ctx.restore();
+}
+
+function drawTemplateSigning(W, H, cx) {
+  const name = ((el("playerName")?.value) || "").trim() || "NY SPELARE";
+  const from = ((el("fromClub")?.value) || "").trim();
+  const pos = ((el("position")?.value) || "").trim();
+
+  const topY = Math.round(H * 0.26);
+
+  const titleTpl = `900 {size}px "Segoe UI", system-ui`;
+  const titleBase = Math.round(Math.min(W, H) * 0.12 * FONT_SCALE);
+  const titleSize = fitText(name.toUpperCase(), Math.round(W * 0.9), titleBase, 20, titleTpl);
+
+  ctx.save();
+  ctx.fillStyle = COLORS.white;
+  ctx.font = titleTpl.replace("{size}", titleSize);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillText(name.toUpperCase(), centeredX(name.toUpperCase(), cx), topY);
+  ctx.restore();
+
+  const sub = [pos, from ? `FRÅN ${from}` : ""].filter(Boolean).join(" • ");
+  drawFooterBar(W, H, cx, sub);
+}
+
+function drawTemplateAnnouncement(W, H, cx) {
+  const title = ((el("announceTitle")?.value) || "").trim() || "MEDDELANDE";
+  const body = ((el("announceBody")?.value) || "").trim() || "Skriv din text här…";
+
+  const titleTpl = `900 {size}px "Segoe UI", system-ui`;
+  const titleBase = Math.round(Math.min(W, H) * 0.10 * FONT_SCALE);
+  const titleSize = fitText(title.toUpperCase(), Math.round(W * 0.9), titleBase, 18, titleTpl);
+
+  const y0 = Math.round(H * 0.22);
+
+  ctx.save();
+  ctx.fillStyle = COLORS.white;
+  ctx.font = titleTpl.replace("{size}", titleSize);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillText(title.toUpperCase(), centeredX(title.toUpperCase(), cx), y0);
+
+  const bodyTpl = `700 {size}px "Segoe UI", system-ui`;
+  const bodySize = Math.round(Math.min(W, H) * 0.045 * FONT_SCALE);
+  ctx.font = bodyTpl.replace("{size}", bodySize);
+
+  const maxW = Math.round(W * 0.84);
+  const lines = wrapLines(body, maxW);
+  const lh = Math.round(bodySize * 1.25);
+
+  let y = y0 + Math.round(titleSize * 1.3);
+  for (let i = 0; i < Math.min(lines.length, 6); i++) {
+    const line = lines[i];
+    ctx.fillText(line, centeredX(line, cx), y);
+    y += lh;
+  }
+
+  ctx.restore();
+
+  drawFooterBar(W, H, cx, "");
+}
+
+const TEMPLATES = {
+  match: {
+    banner: () => ((el("bannerText")?.value) || "").trim() || "MATCHDAG",
+    draw: (W, H, cx, bannerH, logosMeta) => drawTemplateMatch(W, H, cx, bannerH, logosMeta),
+  },
+  final: {
+    banner: () => "SLUTRESULTAT",
+    draw: (W, H, cx, bannerH, logosMeta) => drawTemplateFinal(W, H, cx, bannerH, logosMeta),
+  },
+  signing: {
+    banner: () => "NYFÖRVÄRV",
+    draw: (W, H, cx) => drawTemplateSigning(W, H, cx),
+  },
+  announce: {
+    banner: () => "NYHET",
+    draw: (W, H, cx) => drawTemplateAnnouncement(W, H, cx),
+  },
+};
+
+/* =========================
+   Main draw
+   ========================= */
+
+function draw() {
+  setCanvasSizeFromFormat();
+
+  const W = canvas.width;
+  const H = canvas.height;
+  const cx = Math.round(W / 2);
+
+  drawBase(W, H);
+
+  const bannerText = (TEMPLATES[activeTemplate]?.banner?.() || "MATCHDAG");
+  const bannerH = drawBanner(W, H, cx, bannerText);
+
+  const needsLogos = (activeTemplate === "match");
+  const logosMeta = needsLogos ? drawLogosLocked(W, H, bannerH) : null;
+
+  TEMPLATES[activeTemplate].draw(W, H, cx, bannerH, logosMeta);
 
   el("downloadBtn").disabled = false;
 }
 
-// ===== Events =====
+/* =========================
+   Tabs
+   ========================= */
+
+function updateTemplateFields(template) {
+  document.querySelectorAll(".templateFields").forEach((box) => {
+    box.style.display = (box.dataset.template === template) ? "" : "none";
+  });
+}
+
+function bindTabs() {
+  const tabs = document.querySelectorAll(".tab[data-template]");
+  if (!tabs.length) return;
+
+  tabs.forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const t = btn.dataset.template;
+      if (!TEMPLATES[t]) return;
+
+      activeTemplate = t;
+
+      if (activeTemplate !== "final") {
+        const fb = el("finalBackground");
+        if (fb) fb.value = "";
+        state.finalBg = null;
+      }
+
+      tabs.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+
+      updateTemplateFields(activeTemplate);
+
+      ensureBackgroundSelectPopulated();
+      await applySelectedBackground();
+
+      draw();
+    });
+  });
+
+  updateTemplateFields(activeTemplate);
+}
+
+/* =========================
+   Events
+   ========================= */
+
 el("renderBtn")?.addEventListener("click", async () => {
   try {
     await handleFiles();
@@ -556,7 +962,7 @@ el("downloadBtn")?.addEventListener("click", () => {
   canvas.toBlob((blob) => {
     if (!blob) return;
 
-    const filename = `matchkort_${slugify(label)}_${w}x${h}.png`;
+    const filename = `kort_${activeTemplate}_${slugify(label)}_${w}x${h}.png`;
 
     const a = document.createElement("a");
     const url = URL.createObjectURL(blob);
@@ -587,6 +993,18 @@ el("awayTeam")?.addEventListener("input", async () => {
   draw();
 });
 
+el("venue")?.addEventListener("input", () => draw());
+
+el("homeScore")?.addEventListener("input", () => draw());
+
+el("awayScore")?.addEventListener("input", () => draw());
+
+el("homeScorers")?.addEventListener("input", () => draw());
+
+el("awayScorers")?.addEventListener("input", () => draw());
+
+el("finalMessage")?.addEventListener("input", () => draw());
+
 el("format")?.addEventListener("change", () => draw());
 
 el("bgSelect")?.addEventListener("change", async () => {
@@ -594,7 +1012,30 @@ el("bgSelect")?.addEventListener("change", async () => {
   draw();
 });
 
-// Init
+el("finalBackground")?.addEventListener("change", async () => {
+  await handleFiles();
+  draw();
+});
+
+el("resetBtn")?.addEventListener("click", () => {
+  location.reload();
+});
+
+document.querySelectorAll(".scorersGrid").forEach(box => {
+  box.addEventListener("input", () => draw());
+});
+
+document.addEventListener("blur", (e) => {
+  if (e.target?.classList?.contains("scorerMin")) {
+    e.target.value = normalizeMinutes(e.target.value);
+    draw();
+  }
+}, true);
+
+/* =========================
+   Init
+   ========================= */
+
 (async () => {
   const now = new Date();
   const yyyy = now.getFullYear();
@@ -605,12 +1046,10 @@ el("bgSelect")?.addEventListener("change", async () => {
   ensureBackgroundSelectPopulated();
   if (el("bgSelect")) await applySelectedBackground();
 
-  // Ladda logos (inkl placeholder) innan första draw
   await handleFiles();
   await autoLoadHomeLogo();
   await autoLoadAwayLogo();
 
-  // Ladda och parsa CSV automatiskt
   try {
     const response = await fetch("assets/csv/matcher.csv");
     if (response.ok) {
@@ -622,10 +1061,10 @@ el("bgSelect")?.addEventListener("change", async () => {
     console.warn("Kunde inte ladda matcher.csv:", e);
   }
 
-  // Vänta in webfonts (om de laddas via Google Fonts), så mått blir rätt direkt
   if (document.fonts && document.fonts.ready) {
     try { await document.fonts.ready; } catch (_) { }
   }
 
+  bindTabs();
   requestAnimationFrame(() => draw());
 })();
