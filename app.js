@@ -605,11 +605,11 @@ function drawBanner(W, H, cx, text) {
   const subText = [league, round ? `OMGÅNG ${round}` : ""].filter(Boolean).join(" • ");
 
   const subTpl = `800 {size}px "Arial Narrow", system-ui`;
-  const subBase = Math.max(14, Math.round(bannerSize * 0.33));
+  const subBase = Math.max(14, Math.round(bannerSize * 0.29));
   const subSizeRaw = subText ? fitText(subText, Math.round(W * 0.9), subBase, 12, subTpl) : subBase;
   const subSize = Math.max(10, Math.round(subSizeRaw * 0.78));
 
-  const extraH = subText ? Math.round(subSize * 1.25) : 0;
+  const extraH = (subText && activeTemplate !== "final") ? Math.round(subSize * 1.05) : 0;
   const bannerH = baseH + extraH;
 
   const angle = (-4 * Math.PI) / 180;
@@ -627,11 +627,11 @@ function drawBanner(W, H, cx, text) {
 
   // main line
   ctx.font = bannerTpl.replace("{size}", bannerSize);
-  const mainY = subText ? Math.round(-subSize * 0.55) : 0;
+  const mainY = (subText && activeTemplate !== "final") ? Math.round(-subSize * 0.55) : 0;
   ctx.fillText(bannerText, 0, mainY);
 
   // sub line
-  if (subText) {
+  if (subText && activeTemplate !== "final") {
     ctx.font = subTpl.replace("{size}", subSize);
     const subY = Math.round(bannerSize * 0.42);
     ctx.fillText(subText.toUpperCase(), 0, subY);
@@ -659,7 +659,7 @@ function drawLogosLocked(W, H, bannerH) {
 }
 
 function drawFooterBar(W, H, cx, text) {
-  const footerH = Math.round(H * 0.1);
+  const footerH = Math.round(H * 0.09);
   const footerY = H - footerH;
 
   ctx.fillStyle = COLORS.blue;
