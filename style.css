@@ -16,14 +16,15 @@ body{
   color: var(--text);
 }
 
-.wrap{ max-width: 1100px; margin: 0 auto; padding: 28px 18px 42px; }
+.wrap{ max-width: 1100px; margin: 0 auto; }
 
 .topbar{
   background: linear-gradient(135deg, rgba(1,56,136,.08), rgba(1,56,136,.02));
   border: 1px solid rgba(1,56,136,.12);
   border-radius: var(--radius);
-  padding: 18px 18px;
-  margin-bottom: 18px;
+  padding: 18px 18px 8px;
+  margin-top: 10px;
+  margin-bottom: 2px;
 }
 .topbar h1{ margin:0 0 4px; font-size: 22px; }
 .topbar p{ margin:0; color:var(--muted); }
@@ -83,7 +84,7 @@ h2{ margin: 0 0 12px; font-size: 16px; color: #111b2d; }
 
 .btn{
   height: 40px;
-  padding: 10px 12px;
+  padding: 10px 16px;
   border-radius: 14px;
   border: 1px solid rgba(15, 20, 35, .12);
   background: #fff;
@@ -119,18 +120,20 @@ canvas{
 
 .tabs {
   display: flex;
-  gap: 10px;
-  margin: 12px 0 18px;
-  flex-wrap: wrap;
+  gap: 0;
+  margin: 0 0 0;
 }
 
 .tab {
-  padding: 10px 12px;
-  border-radius: 14px;
+  padding: 10px 14px;
   border: 1px solid rgba(15, 20, 35, .12);
+  border-bottom: none;
+  border-radius: 14px 14px 0 0;
   background: #fff;
   cursor: pointer;
   font-weight: 700;
+  margin-top: 18px;
+  margin-right: 0;
 }
 
 .tab.active {
@@ -140,8 +143,12 @@ canvas{
 }
 
 .tab:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 10px rgba(0, 0, 0, 0.25);
+  transform: translateX(-1px);
+  box-shadow: 6px 0 8px rgba(0, 0, 0, 0.25);
+}
+
+.tab:first-child {
+  margin-left: 22px;
 }
 
 .scorersGrid {
@@ -164,4 +171,20 @@ canvas{
 
 .scorerMin {
   text-align: center;
+}
+
+.form textarea {
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px 11px;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 20, 35, .12);
+  outline: none;
+  font-size: 14px;
+  resize: vertical;
+}
+
+.form textarea:focus {
+  border-color: rgba(1, 56, 136, .45);
+  box-shadow: 0 0 0 3px rgba(1, 56, 136, .10);
 }

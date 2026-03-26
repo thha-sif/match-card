@@ -5,56 +5,52 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Bildgenerator</title>
-  <!--
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Teko:wght@600;700;800&display=swap" rel="stylesheet">
-  -->
   <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
   <div class="wrap">
     <header class="topbar">
-      <h1>Bildgenerator</h1>
-      <p>Skapa en bild för sociala medier på några sekunder.</p>
+      <h2>Bildgenerator till sociala medier för Säters IF Fotboll</h2>
     </header>
 
-    <!-- Tabs mellan header och main -->
     <div class="tabs">
       <button class="tab active" data-template="match">Matchkort</button>
-      <button class="tab" data-template="final">Slutresultat</button>
-      <button class="tab" data-template="signing">Nyförvärv</button>
-      <button class="tab" data-template="announce">Meddelande</button>
+      <button class="tab" data-template="final">Resultat</button>
+      <!-- <button class="tab" data-template="signing">Nyförvärv</button> -->
+      <!-- <button class="tab" data-template="announce">Inlägg</button> -->
     </div>
 
     <main class="grid">
       <section class="panel">
-        <h2>Matchinfo</h2>
+        <h2>Inställningar</h2>
 
         <div class="form">
+          <!-- MATCHSELECT: endast match + final -->
+          <div class="templateFields" data-template="match" data-template-alt="final">
+            <label>
+              Välj match
+              <select id="matchSelect" disabled>
+                <option value="">— Ladda CSV först —</option>
+              </select>
+            </label>
+          </div>
 
-          <!-- Gemensamt: matchSelect, bgSelect -->
-          <label>
-            Välj match
-            <select id="matchSelect" disabled>
-              <option value="">— Ladda CSV först —</option>
-            </select>
-          </label>
+          <!-- BAKGRUND: match + final + announce (döljs på signing) -->
+          <div class="templateFields" data-template="match" data-template-alt="final" data-template-alt2="announce">
+            <label>
+              Bakgrund
+              <select id="bgSelect"></select>
+            </label>
+          </div>
 
-          <label>
-            Bakgrund
-            <select id="bgSelect"></select>
-          </label>
-
-          <!-- MATCH-FÄLT -->
-          <div class="templateFields" data-template="match"> 
+          <!-- MATCH -->
+          <div class="templateFields" data-template="match">
             <label>
               Rubrik
-              <input id="bannerText" type="text" value="MATCHDAG"/>
+              <input id="bannerText" type="text" value="MATCHDAG" />
             </label>
-          
+
             <label>
               Hemmalag
               <input id="homeTeam" type="text" value="Säters IF FK" />
@@ -80,14 +76,36 @@
               Plats
               <input id="venue" type="text" value="Säters IP" />
             </label>
+
+            <div class="row">
+              <label>
+                Hemmalogga (vid behov)
+                <input id="homeLogo" type="file" accept="image/*" />
+              </label>
+              <label>
+                Bortalogga (vid behov)
+                <input id="awayLogo" type="file" accept="image/*" />
+              </label>
+            </div>
           </div>
 
-          <!-- FINAL-FÄLT -->
+          <!-- FINAL -->
           <div class="templateFields" data-template="final" style="display:none;">
             <label>
               Ladda gärna upp bild från matchen (ersätter bakgrund)
               <input id="finalBackground" type="file" accept="image/*" />
             </label>
+
+            <div class="row">
+              <label>
+                Hemmalogga (vid behov)
+                <input id="homeLogo" type="file" accept="image/*" />
+              </label>
+              <label>
+                Bortalogga (vid behov)
+                <input id="awayLogo" type="file" accept="image/*" />
+              </label>
+            </div>
 
             <div class="row">
               <label>
@@ -99,68 +117,112 @@
                 <input id="awayScore" type="number" inputmode="numeric" min="0" value="0" />
               </label>
             </div>
-          
+
             <div class="scorersGrid">
               <label>
                 Valfritt: Namn + minut (ex. "Andersson 23 90+2")
-            
                 <div class="scorersRow">
                   <input class="scorerName" name="sc_home_name_0" data-side="home" data-row="0" placeholder="Hemma" />
                   <input class="scorerMin" data-side="home" data-row="0" placeholder="19" />
                   <input class="scorerName" name="sc_away_name_0" data-side="away" data-row="0" placeholder="Borta" />
                   <input class="scorerMin" data-side="away" data-row="0" placeholder="54" />
                 </div>
-            
                 <div class="scorersRow">
                   <input class="scorerName" name="sc_home_name_1" data-side="home" data-row="1" placeholder="Hemma" />
                   <input class="scorerMin" data-side="home" data-row="1" placeholder="19" />
                   <input class="scorerName" name="sc_away_name_1" data-side="away" data-row="1" placeholder="Borta" />
                   <input class="scorerMin" data-side="away" data-row="1" placeholder="54" />
                 </div>
-            
                 <div class="scorersRow">
                   <input class="scorerName" name="sc_home_name_2" data-side="home" data-row="2" placeholder="Hemma" />
                   <input class="scorerMin" data-side="home" data-row="2" placeholder="19" />
                   <input class="scorerName" name="sc_away_name_2" data-side="away" data-row="2" placeholder="Borta" />
                   <input class="scorerMin" data-side="away" data-row="2" placeholder="54" />
                 </div>
-            
                 <div class="scorersRow">
                   <input class="scorerName" name="sc_home_name_3" data-side="home" data-row="3" placeholder="Hemma" />
                   <input class="scorerMin" data-side="home" data-row="3" placeholder="19" />
                   <input class="scorerName" name="sc_away_name_3" data-side="away" data-row="3" placeholder="Borta" />
                   <input class="scorerMin" data-side="away" data-row="3" placeholder="54" />
                 </div>
-            
                 <div class="scorersRow">
                   <input class="scorerName" name="sc_home_name_4" data-side="home" data-row="4" placeholder="Hemma" />
                   <input class="scorerMin" data-side="home" data-row="4" placeholder="19" />
                   <input class="scorerName" name="sc_away_name_4" data-side="away" data-row="4" placeholder="Borta" />
                   <input class="scorerMin" data-side="away" data-row="4" placeholder="54" />
                 </div>
-            
               </label>
             </div>
-          
+
             <label>
               Valfritt: Alternativ text (visas istället för målskyttar)
               <input id="finalMessage" type="text" placeholder="Tack till publiken!" />
             </label>
           </div>
 
-          <!-- Gemensamt: loggor (vid behov) -->
-          <div class="row">
+          <!-- SIGNING / NYFÖRVÄRV: endast dessa + format -->
+          <div class="templateFields" data-template="signing" style="display:none;">
             <label>
-              Hemmalogga (vid behov)
-              <input id="homeLogo" type="file" accept="image/*" />
+              Profilbild (PNG/JPG)
+              <input id="playerImage" type="file" accept="image/*" />
             </label>
+
+          <label>
+            Förnamn (valfritt)
+            <input id="playerFirstName" type="text" placeholder="Förnamn" />
+          </label>
+          
+          <label>
+            Efternamn (valfritt)
+            <input id="playerLastName" type="text" placeholder="Efternamn" />
+          </label>
+
             <label>
-              Bortalogga (vid behov)
-              <input id="awayLogo" type="file" accept="image/*" />
+              Nummer
+              <input id="playerNumber" type="number" inputmode="numeric" min="0" placeholder="99" />
+            </label>
+
+          </div>
+
+          <!-- ANNOUNCE -->
+          <div class="templateFields" data-template="announce" style="display:none;">
+
+            <label>
+              Bakgrund (valfri bild)
+              <input id="announceBackground" type="file" accept="image/*" />
+            </label>
+
+            <label>
+              Rubrik
+              <input id="announceTitle" type="text" placeholder="Rubrik" />
+            </label>
+          
+            <label>
+              Underrubrik
+              <input id="announceSubtitle" type="text" placeholder="Underrubrik" />
+            </label>
+          
+            <label>
+              Brödtext
+              <textarea id="announceBody" rows="5" placeholder="Skriv din text här…"></textarea>
+            </label>
+          
+            <label>
+              Sidfot
+              <input id="announceFooter" type="text" placeholder="t.ex. satersiffotboll.se" />
+            </label>
+          
+            <label>
+              Sidfotens färg
+              <select id="announceFooterColor">
+                <option value="blue" selected>Säterblå</option>
+                <option value="woodred">Träröd</option>
+                <option value="green">Tallgrön</option>
+              </select>
             </label>
           </div>
 
-          <!-- Gemensamt: format -->
+          <!-- FORMAT: visas på alla templates (inkl. signing) -->
           <label>
             Bildformat
             <select id="format">
@@ -169,23 +231,16 @@
             </select>
           </label>
 
-          <!-- Gemensamt: actions -->
-          <div class="actions">
-            <button id="resetBtn" class="btn">Återställ</button>
-            <button id="renderBtn" class="btn">Uppdatera</button>
-            <button id="downloadBtn" class="btn primary">Ladda ner bild</button>
+          <br>
+
+          <!-- CSV: endast match -->
+          <div class="templateFields" data-template="match">
+            <label>
+              Valfritt: Importera matchdata via CSV
+              <input id="csvFile" type="file" accept=".csv,text/csv" />
+            </label>
+            <button id="loadCsvBtn" class="btn">Läs CSV</button>
           </div>
-
-          <br><br>
-
-          <!-- Gemensamt: CSV import -->
-          <label>
-            Valfritt: Importera matchdata via CSV
-            <input id="csvFile" type="file" accept=".csv,text/csv" />
-          </label>
-
-          <button id="loadCsvBtn" class="btn">Läs CSV</button>
-
         </div>
       </section>
 
@@ -193,6 +248,12 @@
         <h2>Förhandsvisning</h2>
         <div class="canvasWrap">
           <canvas id="card"></canvas>
+        </div>
+
+        <div class="actions">
+          <button id="resetBtn" class="btn">↩ Återställ</button>
+          <button id="renderBtn" class="btn">↻ Uppdatera</button>
+          <button id="downloadBtn" class="btn primary">⬇ Ladda ned</button>
         </div>
       </section>
     </main>

@@ -1,14 +1,14 @@
 const el = (id) => document.getElementById(id);
-
 const canvas = el("card");
 const ctx = canvas.getContext("2d");
 
 const FONT_SCALE = 1.18;
+
 const SCORE_FONT_SIZE = 220;
-const SCORERS_FONT_SIZE = 34;   // fixed size for scorers
+const SCORERS_FONT_SIZE = 34;
 const SCORERS_LINE_GAP = 8;
 const SCORERS_MAX_ROWS = 5;
-const SCORERS_TOP_GAP = 20;     // fixed gap from score to first scorer
+const SCORERS_TOP_GAP = 20;
 
 const state = {
   homeLogo: null,
@@ -17,6 +17,9 @@ const state = {
   bg: null,
   finalBg: null,
   bgMode: "preset",
+  playerImage: null,
+  signingBg: null,
+  sifLogo: null,
 };
 
 const COLORS = {
@@ -89,10 +92,7 @@ function loadFileImage(file) {
   });
 }
 
-/* =========================
-   CSV (oförändrat flöde)
-   ========================= */
-
+/* CSV */
 let csvMatches = [];
 
 function fillMatchSelect(matches) {
@@ -100,7 +100,6 @@ function fillMatchSelect(matches) {
   if (!sel) return;
 
   sel.innerHTML = "";
-
   if (!matches.length) {
     sel.disabled = true;
     const opt = document.createElement("option");
@@ -111,7 +110,6 @@ function fillMatchSelect(matches) {
   }
 
   sel.disabled = false;
-
   const opt0 = document.createElement("option");
   opt0.value = "";
   opt0.textContent = "— Välj match —";
@@ -127,35 +125,35 @@ function fillMatchSelect(matches) {
 
 async function applyMatchToForm(m) {
   if (!m) return;
-
   el("homeTeam").value = m.home || "";
   el("awayTeam").value = m.away || "";
   if (el("venue")) el("venue").value = m.venue || "";
-
   if (m.date && el("date")) el("date").value = m.date;
   if (m.time && el("time")) el("time").value = m.time;
-
   await autoLoadHomeLogo();
   await autoLoadAwayLogo();
   draw();
 }
 
 function parseMatchesFromYourCSV(text) {
-  const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim().split("\n");
+  const lines = text
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .trim()
+    .split("\n");
   if (lines.length < 2) return [];
 
-  const header = lines[0].split(";").map(s => s.trim().toLowerCase());
+  const header = lines[0].split(";").map((s) => s.trim().toLowerCase());
   const iHome = header.indexOf("hemmalag");
   const iAway = header.indexOf("bortalag");
   const iDT = header.indexOf("datum/tid");
-  const iVenue = header.indexOf("plats"); // kan saknas
+  const iVenue = header.indexOf("plats");
 
   if (iHome === -1 || iAway === -1 || iDT === -1) return [];
 
   const matches = [];
-
   for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(";").map(s => (s ?? "").trim());
+    const cols = lines[i].split(";").map((s) => (s ?? "").trim());
     const home = cols[iHome] || "";
     const away = cols[iAway] || "";
     const dt = cols[iDT] || "";
@@ -170,46 +168,64 @@ function parseMatchesFromYourCSV(text) {
       date = parts[0] || "";
       time = parts[1] || "";
     }
-
     matches.push({ home, away, date, time, venue });
   }
-
   return matches;
+}
+
+function normalizeMinutes(raw) {
+  const s = (raw || "").trim();
+  if (!s) return "";
+  const tokens = s
+    .replace(/[,;]+/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+
+  const out = [];
+  for (const t of tokens) {
+    const m = t.match(/^(\d+)(?:\+(\d+))?/);
+    if (!m) continue;
+    const base = m[1];
+    const extra = m[2];
+    out.push(extra ? `${base}+${extra}'` : `${base}'`);
+  }
+  return out.join(", ");
 }
 
 function getScorerLinesFromGrid(side) {
   const out = [];
-
   for (let i = 0; i < SCORERS_MAX_ROWS; i++) {
-    const name = (document.querySelector(`.scorerName[data-side="${side}"][data-row="${i}"]`)?.value || "").trim();
-    let min = (document.querySelector(`.scorerMin[data-side="${side}"][data-row="${i}"]`)?.value || "").trim();
+    const name = (
+      document.querySelector(
+        `.scorerName[data-side="${side}"][data-row="${i}"]`
+      )?.value || ""
+    ).trim();
+
+    let min = (
+      document.querySelector(`.scorerMin[data-side="${side}"][data-row="${i}"]`)
+        ?.value || ""
+    ).trim();
 
     if (!name) continue;
-
     min = normalizeMinutes(min);
-
-    if (min) out.push(`${name} ${min}`);
-    else out.push(name);
+    out.push(min ? `${name} ${min}` : name);
   }
-
   return out;
 }
 
-function parseScorers(text) {
-  return (text || "")
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n")
-    .split("\n")
-    .map(s => s.trim())
-    .filter(Boolean)
-    .slice(0, SCORERS_MAX_ROWS);
+async function ensureSifLogo() {
+  if (state.sifLogo) return;
+  try {
+    state.sifLogo = await loadImageFromURL("assets/logo/saters_if_fk.png");
+  } catch {
+    state.sifLogo = null;
+  }
 }
 
 el("loadCsvBtn")?.addEventListener("click", async (e) => {
   e.preventDefault();
   const file = el("csvFile")?.files?.[0];
   if (!file) return;
-
   const text = await file.text();
   csvMatches = parseMatchesFromYourCSV(text);
   fillMatchSelect(csvMatches);
@@ -221,10 +237,7 @@ el("matchSelect")?.addEventListener("change", async () => {
   await applyMatchToForm(csvMatches[idx]);
 });
 
-/* =========================
-   BACKGROUNDS
-   ========================= */
-
+/* BACKGROUNDS */
 const BACKGROUNDS_MATCH = [
   { id: "bg1", label: "Gräs", url: "assets/bg/blue_grass.png" },
   { id: "bg2", label: "Fotboll", url: "assets/bg/football.png" },
@@ -252,7 +265,6 @@ function ensureBackgroundSelectPopulated() {
   if (!sel) return;
 
   const list = getActiveBackgroundList();
-
   const prev = sel.value;
 
   sel.innerHTML = "";
@@ -262,8 +274,7 @@ function ensureBackgroundSelectPopulated() {
     opt.textContent = bg.label;
     sel.appendChild(opt);
   }
-  
-  sel.value = list.some(b => b.id === prev) ? prev : (list[0]?.id || "");
+  sel.value = list.some((b) => b.id === prev) ? prev : (list[0]?.id || "");
 }
 
 async function applySelectedBackground() {
@@ -273,7 +284,7 @@ async function applySelectedBackground() {
   const choice = sel.value;
   const bg = getActiveBackgroundList().find((b) => b.id === choice);
 
-  if (!bg || !bg.url) {
+  if (!bg?.url) {
     state.bg = null;
     state.bgMode = "preset";
     return;
@@ -289,21 +300,29 @@ async function applySelectedBackground() {
   }
 }
 
-/* =========================
-   Logos (samma logik)
-   ========================= */
-
+/* Logos */
 let lastHomeKey = "";
 let lastAwayKey = "";
 
 async function ensureDefaults() {
   if (!state.placeholderLogo) {
     try {
-      state.placeholderLogo = await loadImageFromURL("assets/logo/placeholder.png");
+      state.placeholderLogo = await loadImageFromURL(
+        "assets/logo/placeholder.png"
+      );
     } catch (e) {
       console.warn("Kunde inte ladda assets/logo/placeholder.png", e);
       state.placeholderLogo = null;
     }
+  }
+}
+
+async function ensureSigningBg() {
+  if (state.signingBg) return;
+  try {
+    state.signingBg = await loadImageFromURL("assets/bg/blue_wood_sign.png");
+  } catch {
+    state.signingBg = null;
   }
 }
 
@@ -316,7 +335,9 @@ async function handleFiles() {
   const homeFile = homeInput?.files?.[0];
   if (homeFile) {
     if (!transparentTypes.includes(homeFile.type)) {
-      alert("Endast PNG, WebP eller GIF-filer (med transparens) är tillåtna för hemmaloga.");
+      alert(
+        "Endast PNG, WebP eller GIF-filer (med transparens) är tillåtna för hemmaloga."
+      );
       homeInput.value = "";
       state.homeLogo = null;
     } else {
@@ -328,7 +349,9 @@ async function handleFiles() {
   const awayFile = awayInput?.files?.[0];
   if (awayFile) {
     if (!transparentTypes.includes(awayFile.type)) {
-      alert("Endast PNG, WebP eller GIF-filer (med transparens) är tillåtna för bortalogga.");
+      alert(
+        "Endast PNG, WebP eller GIF-filer (med transparens) är tillåtna för bortalogga."
+      );
       awayInput.value = "";
       state.awayLogo = null;
     } else {
@@ -338,15 +361,21 @@ async function handleFiles() {
 
   const finalBgInput = el("finalBackground");
   const finalBgFile = finalBgInput?.files?.[0];
-  if (finalBgFile) {
-    state.finalBg = await loadFileImage(finalBgFile);
+  if (finalBgFile) state.finalBg = await loadFileImage(finalBgFile);
+
+  const playerInput = el("playerImage");
+  const playerFile = playerInput?.files?.[0];
+  if (playerFile) {
+    state.playerImage = await loadFileImage(playerFile);
+  } else {
+    state.playerImage = null;
   }
 }
 
 async function autoLoadHomeLogo() {
   await ensureDefaults();
 
-  const homeTeam = ((el("homeTeam")?.value) || "").trim();
+  const homeTeam = ((el("homeTeam")?.value || "")).trim();
   const key = homeTeam.toLowerCase();
   if (key === lastHomeKey) return;
   lastHomeKey = key;
@@ -359,12 +388,10 @@ async function autoLoadHomeLogo() {
     return;
   }
 
-  const file = teamToLogoFilename(homeTeam);
-  const url = `assets/logo/${file}`;
-
+  const url = `assets/logo/${teamToLogoFilename(homeTeam)}`;
   try {
     state.homeLogo = await loadImageFromURL(url);
-  } catch (e) {
+  } catch {
     state.homeLogo = null;
   }
 }
@@ -372,7 +399,7 @@ async function autoLoadHomeLogo() {
 async function autoLoadAwayLogo() {
   await ensureDefaults();
 
-  const awayTeam = ((el("awayTeam")?.value) || "").trim();
+  const awayTeam = ((el("awayTeam")?.value || "")).trim();
   const key = awayTeam.toLowerCase();
   if (key === lastAwayKey) return;
   lastAwayKey = key;
@@ -385,52 +412,27 @@ async function autoLoadAwayLogo() {
     return;
   }
 
-  const file = teamToLogoFilename(awayTeam);
-  const url = `assets/logo/${file}`;
-
+  const url = `assets/logo/${teamToLogoFilename(awayTeam)}`;
   try {
     state.awayLogo = await loadImageFromURL(url);
-  } catch (e) {
+  } catch {
     state.awayLogo = null;
   }
 }
 
-/* =========================
-   Drawing helpers
-   ========================= */
-
+/* Drawing helpers */
 function formatDate(dateStr) {
   if (!dateStr) return "";
   const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString("sv-SE", { weekday: "short", day: "2-digit", month: "short" });
-}
-
-function normalizeMinutes(raw) {
-  const s = (raw || "").trim();
-  if (!s) return "";
-
-  const tokens = s
-    .replace(/[,;]+/g, " ")
-    .split(/\s+/)
-    .filter(Boolean);
-
-  const out = [];
-  for (const t of tokens) {
-    // matchar "12", "90+2", "105+1" osv (tar även bort ev. apostrof/andra tecken efter)
-    const m = t.match(/^(\d+)(?:\+(\d+))?/);
-    if (!m) continue;
-
-    const base = m[1];
-    const extra = m[2];
-    out.push(extra ? `${base}+${extra}'` : `${base}'`);
-  }
-
-  return out.join(", ");
+  return d.toLocaleDateString("sv-SE", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+  });
 }
 
 function drawCover(img, x, y, w, h, alpha = 1) {
   if (!img) return;
-
   ctx.save();
   ctx.globalAlpha = alpha;
 
@@ -438,7 +440,6 @@ function drawCover(img, x, y, w, h, alpha = 1) {
   const rr = w / h;
 
   let dw, dh, dx, dy;
-
   if (ir > rr) {
     dh = h;
     dw = h * ir;
@@ -465,15 +466,6 @@ function drawFixedHeightCentered(img, centerX, y, height = 280, alpha = 1) {
   ctx.restore();
 }
 
-function drawFixedHeight(img, x, y, height = 280, alpha = 1) {
-  if (!img) return;
-  const w = Math.round(height * (img.width / img.height));
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  ctx.drawImage(img, x, y, w, height);
-  ctx.restore();
-}
-
 function fitText(text, maxWidth, startSize, minSize, fontTemplate) {
   let size = startSize;
   while (size >= minSize) {
@@ -489,43 +481,12 @@ function centeredX(text, centerX) {
   return Math.round(centerX - w / 2);
 }
 
-function drawContainMaxH(img, x, y, w, h, maxH = 280, alpha = 1) {
-  if (!img) return;
-
-  const targetH = Math.min(h, maxH);
-  const targetY = Math.round(y + (h - targetH) / 2);
-
-  ctx.save();
-  ctx.globalAlpha = alpha;
-
-  const ir = img.width / img.height;
-  const rr = w / targetH;
-
-  let dw, dh, dx, dy;
-
-  if (ir > rr) {
-    dw = w;
-    dh = w / ir;
-    dx = x;
-    dy = Math.round(targetY + (targetH - dh) / 2);
-  } else {
-    dh = targetH;
-    dw = targetH * ir;
-    dx = Math.round(x + (w - dw) / 2);
-    dy = targetY;
-  }
-
-  ctx.drawImage(img, dx, dy, dw, dh);
-  ctx.restore();
-}
-
 function wrapLines(text, maxWidth) {
   const words = (text || "").split(/\s+/).filter(Boolean);
   const lines = [];
   let line = "";
-
   for (const w of words) {
-    const test = line ? (line + " " + w) : w;
+    const test = line ? line + " " + w : w;
     if (ctx.measureText(test).width <= maxWidth) {
       line = test;
     } else {
@@ -537,20 +498,46 @@ function wrapLines(text, maxWidth) {
   return lines;
 }
 
-/* =========================
-   Shared components
-   ========================= */
+function drawOvalFramed(img, x, y, w, h, frameColor, frameW = 10) {
+  const cx = x + w / 2;
+  const cy = y + h / 2;
 
+  ctx.save();
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, w / 2, h / 2, 0, 0, Math.PI * 2);
+  ctx.closePath();
+  ctx.clip();
+
+  if (img) drawCover(img, x, y, w, h, 1);
+  else {
+    ctx.fillStyle = "rgba(244,242,238,0.65)";
+    ctx.fillRect(x, y, w, h);
+  }
+
+  ctx.restore();
+
+  ctx.save();
+  ctx.strokeStyle = frameColor;
+  ctx.lineWidth = frameW;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, w / 2 - frameW / 2, h / 2 - frameW / 2, 0, 0, Math.PI * 2);
+  ctx.closePath();
+  ctx.stroke();
+  ctx.restore();
+}
+
+/* Shared components */
 function drawBase(W, H) {
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = COLORS.offwhite;
   ctx.fillRect(0, 0, W, H);
 
-  const useFinal = (activeTemplate === "final" && state.finalBg);
+  const useFinal = activeTemplate === "final" && state.finalBg;
   const bgToDraw = useFinal ? state.finalBg : state.bg;
 
   if (bgToDraw) {
-    if (useFinal) ctx.filter = "saturate(0.55) contrast(1.05)";
+    if (useFinal)
+      ctx.filter = "saturate(0.65) contrast(1.05) brightness(0.98)";
     drawCover(bgToDraw, 0, 0, W, H);
     ctx.filter = "none";
   }
@@ -564,13 +551,17 @@ function drawBase(W, H) {
 function drawBanner(W, H, cx, text) {
   const bannerH = Math.round(H * 0.15);
   const bannerText = (text || "MATCHDAG").trim().toUpperCase();
-
   const bannerBaseSize = Math.round(Math.min(W, H) * 0.13 * FONT_SCALE);
   const bannerTpl = `900 {size}px "Segoe UI", system-ui`;
-  const bannerSize = fitText(bannerText, Math.round(W * 0.9), bannerBaseSize, 18, bannerTpl);
+  const bannerSize = fitText(
+    bannerText,
+    Math.round(W * 0.9),
+    bannerBaseSize,
+    18,
+    bannerTpl
+  );
 
-  const angle = -4 * Math.PI / 180;
-
+  const angle = (-4 * Math.PI) / 180;
   ctx.save();
   ctx.translate(cx, bannerH * 0.9);
   ctx.rotate(angle);
@@ -585,7 +576,6 @@ function drawBanner(W, H, cx, text) {
   ctx.fillText(bannerText, 0, 0);
 
   ctx.restore();
-
   return bannerH;
 }
 
@@ -593,12 +583,6 @@ function drawLogosLocked(W, H, bannerH) {
   const contentTop = bannerH + Math.round(H * 0.12);
   const logoSize = Math.round(Math.min(W, H) * 0.25);
   const logosY = contentTop;
-
-  const homeCenterX = Math.round(W * 0.30);
-  const awayCenterX = Math.round(W * 0.70);
-
-  const homeLogoX = Math.round(homeCenterX - logoSize / 2);
-  const awayLogoX = Math.round(awayCenterX - logoSize / 2);
 
   const homeToDraw = state.homeLogo || state.placeholderLogo;
   const awayToDraw = state.awayLogo || state.placeholderLogo;
@@ -613,7 +597,7 @@ function drawLogosLocked(W, H, bannerH) {
 }
 
 function drawFooterBar(W, H, cx, text) {
-  const footerH = Math.round(H * 0.10);
+  const footerH = Math.round(H * 0.1);
   const footerY = H - footerH;
 
   ctx.fillStyle = COLORS.blue;
@@ -622,7 +606,13 @@ function drawFooterBar(W, H, cx, text) {
   const footerText = (text || " ").toUpperCase();
   const footerBaseSize = Math.round(Math.min(W, H) * 0.07 * FONT_SCALE);
   const footerTpl = `900 {size}px "Arial", system-ui`;
-  const footerSize = fitText(footerText, Math.round(W * 0.95), footerBaseSize, 16, footerTpl);
+  const footerSize = fitText(
+    footerText,
+    Math.round(W * 0.95),
+    footerBaseSize,
+    16,
+    footerTpl
+  );
 
   ctx.fillStyle = COLORS.white;
   ctx.font = footerTpl.replace("{size}", footerSize);
@@ -633,7 +623,15 @@ function drawFooterBar(W, H, cx, text) {
   return { footerY, footerH };
 }
 
-function drawMatchupStackedCentered({ centerX, y, maxWidth, home, away, vsPx = 56, gapPx = null }) {
+function drawMatchupStackedCentered({
+  centerX,
+  y,
+  maxWidth,
+  home,
+  away,
+  vsPx = 56,
+  gapPx = null,
+}) {
   const fontFamily = `"Segoe UI", system-ui`;
   const base = Math.round(Math.min(canvas.width, canvas.height) * 0.12 * FONT_SCALE);
   const minSize = 18;
@@ -668,15 +666,13 @@ function drawMatchupStackedCentered({ centerX, y, maxWidth, home, away, vsPx = 5
   return awayY + lh(awaySize);
 }
 
-/* =========================
-   Templates
-   ========================= */
-
+/* Templates */
 function drawTemplateMatch(W, H, cx, bannerH, logosMeta) {
-  const homeTeam = ((el("homeTeam")?.value) || "").trim() || "Hemmalag";
-  const awayTeam = ((el("awayTeam")?.value) || "").trim() || "Bortalag";
+  const homeTeam = ((el("homeTeam")?.value || "")).trim() || "Hemmalag";
+  const awayTeam = ((el("awayTeam")?.value || "")).trim() || "Bortalag";
 
-  const titleY = logosMeta.contentTop + logosMeta.logoSize + Math.round(H * 0.08);
+  const titleY =
+    logosMeta.contentTop + logosMeta.logoSize + Math.round(H * 0.08);
   const maxTitleWidth = Math.round(W * 0.82);
 
   drawMatchupStackedCentered({
@@ -689,26 +685,25 @@ function drawTemplateMatch(W, H, cx, bannerH, logosMeta) {
 
   const date = formatDate(el("date")?.value);
   const time = el("time")?.value || "";
-  const venue = ((el("venue")?.value) || "").trim();
-
+  const venue = ((el("venue")?.value || "")).trim();
   const infoText = [date, time, venue].filter(Boolean).join(" • ");
+
   drawFooterBar(W, H, cx, infoText);
 }
 
 function drawTemplateFinal(W, H, cx, bannerH, logosMeta) {
-  const hs = (el("homeScore")?.value || "").trim() || "0";
-  const as = (el("awayScore")?.value || "").trim() || "0";
+  const hs = ((el("homeScore")?.value || "")).trim() || "0";
+  const as = ((el("awayScore")?.value || "")).trim() || "0";
   const scoreText = `${hs}-${as}`;
 
-  const baseTop = (logosMeta && typeof logosMeta.contentTop === "number" && typeof logosMeta.logoSize === "number")
-    ? (logosMeta.contentTop + logosMeta.logoSize)
-    : (bannerH + Math.round(H * 0.22));
+  const baseTop =
+    logosMeta && typeof logosMeta.contentTop === "number" && typeof logosMeta.logoSize === "number"
+      ? logosMeta.contentTop + logosMeta.logoSize
+      : bannerH + Math.round(H * 0.22);
 
   const scoreY = baseTop + Math.round(H * 0.25);
 
   ctx.save();
-
-  // Score (fast font-size)
   ctx.font = `900 ${SCORE_FONT_SIZE}px "Segoe UI", system-ui`;
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
@@ -721,43 +716,33 @@ function drawTemplateFinal(W, H, cx, bannerH, logosMeta) {
   const boxH = Math.round(SCORE_FONT_SIZE + padY * 2);
   const boxY = Math.round(scoreY - padY);
 
-  // Bård bakom score (halvtransparent offwhite)
-  ctx.fillStyle = "rgba(244,242,238,0.65)"; // #F4F2EE med alpha (din offwhite)
+  ctx.fillStyle = "rgba(244,242,238,0.65)";
   ctx.fillRect(boxX, boxY, boxW, boxH);
 
-  // Små loggor i score-bården (ovanpå fillRect)
   const homeLogo = state.homeLogo || state.placeholderLogo;
   const awayLogo = state.awayLogo || state.placeholderLogo;
 
-  const scoreLeftX = Math.round(cx - textW / 2); // vänsterkant för scoreText
-  const smallLogo = Math.round(SCORE_FONT_SIZE * 0.62); // mindre loggor
-  const logoGap = Math.round(SCORE_FONT_SIZE * 0.25);   // avstånd till siffror
+  const scoreLeftX = Math.round(cx - textW / 2);
+  const smallLogo = Math.round(SCORE_FONT_SIZE * 0.62);
+  const logoGap = Math.round(SCORE_FONT_SIZE * 0.25);
   const logoY = Math.round(boxY + (boxH - smallLogo) / 2);
 
-  // Mät delarna för att hitta var hemmasiffran/bortasiffran ligger
-  const hsW = ctx.measureText(hs).width;
-  const dashW = ctx.measureText("–").width;
-  const asW = ctx.measureText(as).width;
+  const hsW = ctx.measureText(String(hs)).width;
+  const sepW = ctx.measureText("–").width;
+  const asW = ctx.measureText(String(as)).width;
 
-  // Hemmalogga: vänster om hemmasiffran
   const homeLogoX = Math.round(scoreLeftX - logoGap - smallLogo);
-
-  // Bortalogga: höger om bortasiffran
-  const awayLogoX = Math.round(scoreLeftX + hsW + dashW + asW + logoGap);
+  const awayLogoX = Math.round(scoreLeftX + hsW + sepW + asW + logoGap);
 
   if (homeLogo) drawCover(homeLogo, homeLogoX, logoY, smallLogo, smallLogo, 1);
   if (awayLogo) drawCover(awayLogo, awayLogoX, logoY, smallLogo, smallLogo, 1);
 
-  // Score text ovanpå (blå)
   ctx.fillStyle = COLORS.blue;
   ctx.fillText(scoreText, Math.round(cx - textW / 2), scoreY);
 
-  // Startpunkt för målskyttar / alternativtext
   const listY = boxY + boxH + SCORERS_TOP_GAP;
+  const msg = ((el("finalMessage")?.value || "")).trim();
 
-  const msg = (el("finalMessage")?.value || "").trim();
-
-  // Om alternativtext finns -> visa den istället för målskyttar
   if (msg) {
     const msgTpl = `800 {size}px "Segoe UI", system-ui`;
     const msgBase = Math.round(Math.min(W, H) * 0.06);
@@ -767,7 +752,7 @@ function drawTemplateFinal(W, H, cx, bannerH, logosMeta) {
     ctx.font = msgTpl.replace("{size}", msgSize);
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
-    ctx.fillText(msg, cx, (listY * 1.08));
+    ctx.fillText(msg, cx, Math.round(listY * 1.08));
 
     ctx.restore();
     return;
@@ -778,7 +763,6 @@ function drawTemplateFinal(W, H, cx, bannerH, logosMeta) {
 
   const homeCenterX = Math.round(W * 0.12);
   const awayCenterX = Math.round(W * 0.58);
-
   const lineH = SCORERS_FONT_SIZE + SCORERS_LINE_GAP;
 
   ctx.fillStyle = COLORS.white;
@@ -788,7 +772,6 @@ function drawTemplateFinal(W, H, cx, bannerH, logosMeta) {
 
   for (let i = 0; i < SCORERS_MAX_ROWS; i++) {
     const y = listY + i * lineH;
-
     if (homeLines[i]) ctx.fillText(homeLines[i], homeCenterX, y);
     if (awayLines[i]) ctx.fillText(awayLines[i], awayCenterX, y);
   }
@@ -797,36 +780,109 @@ function drawTemplateFinal(W, H, cx, bannerH, logosMeta) {
 }
 
 function drawTemplateSigning(W, H, cx) {
-  const name = ((el("playerName")?.value) || "").trim() || "NY SPELARE";
-  const from = ((el("fromClub")?.value) || "").trim();
-  const pos = ((el("position")?.value) || "").trim();
+  const xLeft = Math.round(W * 0.06);
+  const maxW = Math.round(W * 0.9);
 
-  const topY = Math.round(H * 0.26);
+  const numberRaw = ((el("playerNumber")?.value || "")).trim();
+  const number = numberRaw ? `#${numberRaw}` : "";
 
+  const first = ((el("playerFirstName")?.value || "")).trim().toUpperCase();
+  const last = ((el("playerLastName")?.value || "")).trim().toUpperCase();
+
+  let lineTop = "";
+  let lineBottom = "";
+
+  if (first && last) {
+    lineTop = first;
+    lineBottom = last;
+  } else {
+    lineBottom = (first || last || "NY SPELARE");
+  }
+
+  drawCover(state.signingBg, 0, 0, W, H);
+
+  const topPad = Math.round(H * 0.06);
+
+  const title = "NYFÖRVÄRV";
   const titleTpl = `900 {size}px "Segoe UI", system-ui`;
-  const titleBase = Math.round(Math.min(W, H) * 0.12 * FONT_SCALE);
-  const titleSize = fitText(name.toUpperCase(), Math.round(W * 0.9), titleBase, 20, titleTpl);
+  const titleBase = Math.round(H * 0.11 * FONT_SCALE);
+  const titleSize = fitText(title, maxW, titleBase, 18, titleTpl);
 
   ctx.save();
   ctx.fillStyle = COLORS.white;
   ctx.font = titleTpl.replace("{size}", titleSize);
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
-  ctx.fillText(name.toUpperCase(), centeredX(name.toUpperCase(), cx), topY);
+  ctx.fillText(title, xLeft, topPad);
   ctx.restore();
 
-  const sub = [pos, from ? `FRÅN ${from}` : ""].filter(Boolean).join(" • ");
-  drawFooterBar(W, H, cx, sub);
+  const titleGap = Math.round(H * 0.02);
+  const logoSize = 180;
+
+  const logoY = topPad + Math.round(titleSize * 0.96) + titleGap;
+  if (state.sifLogo) drawCover(state.sifLogo, xLeft, logoY, logoSize, logoSize);
+
+  const blockY = logoY + logoSize + Math.round(H * 0.03);
+
+  const ovalW = Math.round(W * 1.06);
+  const ovalH = Math.round(H * 0.96);
+  const ovalX = Math.round(W * 0.22);
+  const ovalY = Math.round(blockY - H * 0.035);
+
+  const frameW = Math.max(8, Math.round(Math.min(W, H) * 0.008));
+  drawOvalFramed(state.playerImage, ovalX, ovalY, ovalW, ovalH, COLORS.blue, frameW);
+
+  ctx.save();
+  ctx.fillStyle = COLORS.white;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+
+  const nameTpl = `900 {size}px "Segoe UI", system-ui`;
+  const nameBase = Math.round(Math.min(W, H) * 0.16 * FONT_SCALE);
+
+  let size = nameBase;
+  while (size >= 18) {
+    ctx.font = nameTpl.replace("{size}", size);
+    const w1 = ctx.measureText(lineTop || " ").width;
+    const w2 = ctx.measureText(lineBottom || " ").width;
+    if (Math.max(w1, w2) <= maxW) break;
+    size -= 2;
+  }
+
+  ctx.font = nameTpl.replace("{size}", size);
+
+  const gap = Math.min(22, Math.round(size * 0.18));
+  const lh = Math.round(size * 0.95);
+
+  const bottomPad = Math.round(H * 0.05);
+  const totalH = lineTop ? (lh + gap + lh) : lh;
+  const nameTopY = Math.round(H - bottomPad - totalH);
+
+  if (lineTop) ctx.fillText(lineTop, xLeft, nameTopY);
+  ctx.fillText(lineBottom, xLeft, nameTopY + (lineTop ? (lh + gap) : 0));
+
+  ctx.restore();
+
+  const numSize = Math.round(H * 0.06);
+  const numGap = Math.min(26, Math.max(10, Math.round(numSize * 0.45)));
+  const numY = Math.round(nameTopY - numGap - numSize);
+
+  ctx.save();
+  ctx.fillStyle = COLORS.white;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.font = `900 ${numSize}px "Times New Roman", serif`;
+  if (number) ctx.fillText(number, xLeft, numY);
+  ctx.restore();
 }
 
 function drawTemplateAnnouncement(W, H, cx) {
-  const title = ((el("announceTitle")?.value) || "").trim() || "MEDDELANDE";
-  const body = ((el("announceBody")?.value) || "").trim() || "Skriv din text här…";
+  const title = ((el("announceTitle")?.value || "")).trim() || "MEDDELANDE";
+  const body = ((el("announceBody")?.value || "")).trim() || "Skriv din text här…";
 
   const titleTpl = `900 {size}px "Segoe UI", system-ui`;
-  const titleBase = Math.round(Math.min(W, H) * 0.10 * FONT_SCALE);
+  const titleBase = Math.round(Math.min(W, H) * 0.1 * FONT_SCALE);
   const titleSize = fitText(title.toUpperCase(), Math.round(W * 0.9), titleBase, 18, titleTpl);
-
   const y0 = Math.round(H * 0.22);
 
   ctx.save();
@@ -852,18 +908,19 @@ function drawTemplateAnnouncement(W, H, cx) {
   }
 
   ctx.restore();
-
   drawFooterBar(W, H, cx, "");
 }
 
 const TEMPLATES = {
   match: {
-    banner: () => ((el("bannerText")?.value) || "").trim() || "MATCHDAG",
-    draw: (W, H, cx, bannerH, logosMeta) => drawTemplateMatch(W, H, cx, bannerH, logosMeta),
+    banner: () => ((el("bannerText")?.value || "")).trim() || "MATCHDAG",
+    draw: (W, H, cx, bannerH, logosMeta) =>
+      drawTemplateMatch(W, H, cx, bannerH, logosMeta),
   },
   final: {
     banner: () => "SLUTRESULTAT",
-    draw: (W, H, cx, bannerH, logosMeta) => drawTemplateFinal(W, H, cx, bannerH, logosMeta),
+    draw: (W, H, cx, bannerH, logosMeta) =>
+      drawTemplateFinal(W, H, cx, bannerH, logosMeta),
   },
   signing: {
     banner: () => "NYFÖRVÄRV",
@@ -875,37 +932,38 @@ const TEMPLATES = {
   },
 };
 
-/* =========================
-   Main draw
-   ========================= */
-
+/* Main draw */
 function draw() {
   setCanvasSizeFromFormat();
-
   const W = canvas.width;
   const H = canvas.height;
   const cx = Math.round(W / 2);
 
   drawBase(W, H);
 
-  const bannerText = (TEMPLATES[activeTemplate]?.banner?.() || "MATCHDAG");
+  if (activeTemplate === "signing") {
+    TEMPLATES.signing.draw(W, H, cx);
+    el("downloadBtn").disabled = false;
+    return;
+  }
+
+  const bannerText = TEMPLATES[activeTemplate]?.banner?.() || "MATCHDAG";
   const bannerH = drawBanner(W, H, cx, bannerText);
 
-  const needsLogos = (activeTemplate === "match");
+  const needsLogos = activeTemplate === "match";
   const logosMeta = needsLogos ? drawLogosLocked(W, H, bannerH) : null;
 
   TEMPLATES[activeTemplate].draw(W, H, cx, bannerH, logosMeta);
-
   el("downloadBtn").disabled = false;
 }
 
-/* =========================
-   Tabs
-   ========================= */
-
+/* Tabs */
 function updateTemplateFields(template) {
   document.querySelectorAll(".templateFields").forEach((box) => {
-    box.style.display = (box.dataset.template === template) ? "" : "none";
+    const t1 = box.dataset.template;
+    const t2 = box.dataset.templateAlt;
+    const t3 = box.dataset.templateAlt2;
+    box.style.display = (t1 === template || t2 === template || t3 === template) ? "" : "none";
   });
 }
 
@@ -926,14 +984,14 @@ function bindTabs() {
         state.finalBg = null;
       }
 
-      tabs.forEach(b => b.classList.remove("active"));
+      if (activeTemplate === "signing") await ensureSigningBg();
+
+      tabs.forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
 
       updateTemplateFields(activeTemplate);
-
       ensureBackgroundSelectPopulated();
       await applySelectedBackground();
-
       draw();
     });
   });
@@ -941,10 +999,7 @@ function bindTabs() {
   updateTemplateFields(activeTemplate);
 }
 
-/* =========================
-   Events
-   ========================= */
-
+/* Events */
 el("renderBtn")?.addEventListener("click", async () => {
   try {
     await handleFiles();
@@ -958,19 +1013,19 @@ el("renderBtn")?.addEventListener("click", async () => {
 
 el("downloadBtn")?.addEventListener("click", () => {
   const { label, w, h } = getSelectedFormat();
-
-  canvas.toBlob((blob) => {
-    if (!blob) return;
-
-    const filename = `kort_${activeTemplate}_${slugify(label)}_${w}x${h}.png`;
-
-    const a = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, "image/png");
+  canvas.toBlob(
+    (blob) => {
+      if (!blob) return;
+      const filename = `kort_${activeTemplate}_${slugify(label)}_${w}x${h}.png`;
+      const a = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    },
+    "image/png"
+  );
 });
 
 el("homeLogo")?.addEventListener("change", async () => {
@@ -994,17 +1049,9 @@ el("awayTeam")?.addEventListener("input", async () => {
 });
 
 el("venue")?.addEventListener("input", () => draw());
-
 el("homeScore")?.addEventListener("input", () => draw());
-
 el("awayScore")?.addEventListener("input", () => draw());
-
-el("homeScorers")?.addEventListener("input", () => draw());
-
-el("awayScorers")?.addEventListener("input", () => draw());
-
 el("finalMessage")?.addEventListener("input", () => draw());
-
 el("format")?.addEventListener("change", () => draw());
 
 el("bgSelect")?.addEventListener("change", async () => {
@@ -1021,21 +1068,31 @@ el("resetBtn")?.addEventListener("click", () => {
   location.reload();
 });
 
-document.querySelectorAll(".scorersGrid").forEach(box => {
+document.querySelectorAll(".scorersGrid").forEach((box) => {
   box.addEventListener("input", () => draw());
 });
 
-document.addEventListener("blur", (e) => {
-  if (e.target?.classList?.contains("scorerMin")) {
-    e.target.value = normalizeMinutes(e.target.value);
-    draw();
-  }
-}, true);
+document.addEventListener(
+  "blur",
+  (e) => {
+    if (e.target?.classList?.contains("scorerMin")) {
+      e.target.value = normalizeMinutes(e.target.value);
+      draw();
+    }
+  },
+  true
+);
 
-/* =========================
-   Init
-   ========================= */
+["playerFirstName", "playerLastName", "playerNumber"].forEach((id) => {
+  el(id)?.addEventListener("input", () => draw());
+});
 
+el("playerImage")?.addEventListener("change", async () => {
+  await handleFiles();
+  draw();
+});
+
+/* Init */
 (async () => {
   const now = new Date();
   const yyyy = now.getFullYear();
@@ -1049,6 +1106,8 @@ document.addEventListener("blur", (e) => {
   await handleFiles();
   await autoLoadHomeLogo();
   await autoLoadAwayLogo();
+  await ensureSigningBg();
+  await ensureSifLogo();
 
   try {
     const response = await fetch("assets/csv/matcher.csv");
@@ -1061,8 +1120,10 @@ document.addEventListener("blur", (e) => {
     console.warn("Kunde inte ladda matcher.csv:", e);
   }
 
-  if (document.fonts && document.fonts.ready) {
-    try { await document.fonts.ready; } catch (_) { }
+  if (document.fonts?.ready) {
+    try {
+      await document.fonts.ready;
+    } catch (_) { }
   }
 
   bindTabs();
