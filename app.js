@@ -92,6 +92,25 @@ function loadFileImage(file) {
   });
 }
 
+function drawNameLineWithBg(text, xText, yText, size, padTop, padBottom, padRight, bgAlpha = 0.15) {
+  if (!text) return;
+
+  const w = ctx.measureText(text).width;
+
+  const x0 = -Math.round(canvas.width * 0.04);
+  const textH = Math.round(size * 0.90);
+
+  const y0 = Math.round(yText - padTop);
+  const rectW = Math.round((xText + w + padRight) - x0);
+  const rectH = Math.round(textH + padTop + padBottom);
+
+  ctx.fillStyle = `rgba(0,0,0,${bgAlpha})`;
+  ctx.fillRect(x0, y0, rectW, rectH);
+
+  ctx.fillStyle = COLORS.white;
+  ctx.fillText(text, xText, yText);
+}
+
 /* CSV */
 let csvMatches = [];
 
@@ -118,46 +137,63 @@ function fillMatchSelect(matches) {
   matches.forEach((m, idx) => {
     const opt = document.createElement("option");
     opt.value = String(idx);
-    opt.textContent = `${m.date} ${m.time} • ${m.home} vs ${m.away}`;
+    opt.textContent = `${m.date} • ${m.league} • ${m.home} vs ${m.away}`;
     sel.appendChild(opt);
   });
 }
 
 async function applyMatchToForm(m) {
   if (!m) return;
+
   el("homeTeam").value = m.home || "";
   el("awayTeam").value = m.away || "";
   if (el("venue")) el("venue").value = m.venue || "";
   if (m.date && el("date")) el("date").value = m.date;
   if (m.time && el("time")) el("time").value = m.time;
+
+  if (el("league")) el("league").value = m.league || "";
+  if (el("round")) el("round").value = m.round || "";
+
   await autoLoadHomeLogo();
   await autoLoadAwayLogo();
   draw();
 }
 
+function sanitizeVenueFromCSV(v) {
+  let s = (v || "").trim().replace(/\s+/g, " ");
+  s = s.replace(/\s+a-plan$/i, "").trim();
+  s = s.replace(/\s+a$/i, "").trim();
+  s = s.replace(/\s+konst.*$/i, "").trim();
+  return s;
+}
+
 function parseMatchesFromYourCSV(text) {
-  const lines = text
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n")
-    .trim()
-    .split("\n");
+  const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim().split("\n");
   if (lines.length < 2) return [];
 
-  const header = lines[0].split(";").map((s) => s.trim().toLowerCase());
+  const norm = (s) => (s || "").trim().toLowerCase().replace(/\s+/g, "");
+  const header = lines[0].split(";").map(norm);
+
   const iHome = header.indexOf("hemmalag");
   const iAway = header.indexOf("bortalag");
   const iDT = header.indexOf("datum/tid");
-  const iVenue = header.indexOf("plats");
+  const iVenue = header.indexOf("plats") !== -1 ? header.indexOf("plats") : header.indexOf("anläggning");
+  const iLeague = header.indexOf("tävling");
+  const iRound = header.indexOf("omg");
 
   if (iHome === -1 || iAway === -1 || iDT === -1) return [];
 
   const matches = [];
   for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(";").map((s) => (s ?? "").trim());
+    const cols = lines[i].split(";").map(s => (s ?? "").trim());
+
     const home = cols[iHome] || "";
     const away = cols[iAway] || "";
     const dt = cols[iDT] || "";
-    const venue = iVenue !== -1 ? (cols[iVenue] || "") : "";
+    const venueRaw = iVenue !== -1 ? (cols[iVenue] || "") : "";
+    const venue = sanitizeVenueFromCSV(venueRaw);
+    const league = iLeague !== -1 ? (cols[iLeague] || "") : "";
+    const round = iRound !== -1 ? (cols[iRound] || "") : "";
 
     if (!home || !away) continue;
 
@@ -168,8 +204,10 @@ function parseMatchesFromYourCSV(text) {
       date = parts[0] || "";
       time = parts[1] || "";
     }
-    matches.push({ home, away, date, time, venue });
+
+    matches.push({ home, away, date, time, venue, league, round });
   }
+
   return matches;
 }
 
@@ -526,6 +564,11 @@ function drawOvalFramed(img, x, y, w, h, frameColor, frameW = 10) {
   ctx.restore();
 }
 
+function trimLeague(s) {
+  const t = (s || "").trim();
+  return t.replace(/\b(herr|herrar|dam|damer)\b.+$/i, "$1").trim();
+}
+
 /* Shared components */
 function drawBase(W, H) {
   ctx.clearRect(0, 0, W, H);
@@ -549,31 +592,50 @@ function drawBase(W, H) {
 }
 
 function drawBanner(W, H, cx, text) {
-  const bannerH = Math.round(H * 0.15);
+  const baseH = Math.round(H * 0.15);
+
   const bannerText = (text || "MATCHDAG").trim().toUpperCase();
   const bannerBaseSize = Math.round(Math.min(W, H) * 0.13 * FONT_SCALE);
   const bannerTpl = `900 {size}px "Segoe UI", system-ui`;
-  const bannerSize = fitText(
-    bannerText,
-    Math.round(W * 0.9),
-    bannerBaseSize,
-    18,
-    bannerTpl
-  );
+  const bannerSize = fitText(bannerText, Math.round(W * 0.9), bannerBaseSize, 18, bannerTpl);
+
+  // league + round under bannerText (smaller)
+  const league = trimLeague(el("league")?.value || "");
+  const round = (el("round")?.value || "").trim();
+  const subText = [league, round ? `OMGÅNG ${round}` : ""].filter(Boolean).join(" • ");
+
+  const subTpl = `800 {size}px "Arial Narrow", system-ui`;
+  const subBase = Math.max(14, Math.round(bannerSize * 0.33));
+  const subSizeRaw = subText ? fitText(subText, Math.round(W * 0.9), subBase, 12, subTpl) : subBase;
+  const subSize = Math.max(10, Math.round(subSizeRaw * 0.78));
+
+  const extraH = subText ? Math.round(subSize * 1.25) : 0;
+  const bannerH = baseH + extraH;
 
   const angle = (-4 * Math.PI) / 180;
+
   ctx.save();
-  ctx.translate(cx, bannerH * 0.9);
+  ctx.translate(cx, bannerH * 0.90);
   ctx.rotate(angle);
 
   ctx.fillStyle = COLORS.blue;
   ctx.fillRect(-W * 0.6, -bannerH / 2, W * 1.2, bannerH);
 
   ctx.fillStyle = COLORS.white;
-  ctx.font = bannerTpl.replace("{size}", bannerSize);
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(bannerText, 0, 0);
+
+  // main line
+  ctx.font = bannerTpl.replace("{size}", bannerSize);
+  const mainY = subText ? Math.round(-subSize * 0.55) : 0;
+  ctx.fillText(bannerText, 0, mainY);
+
+  // sub line
+  if (subText) {
+    ctx.font = subTpl.replace("{size}", subSize);
+    const subY = Math.round(bannerSize * 0.42);
+    ctx.fillText(subText.toUpperCase(), 0, subY);
+  }
 
   ctx.restore();
   return bannerH;
@@ -605,7 +667,7 @@ function drawFooterBar(W, H, cx, text) {
 
   const footerText = (text || " ").toUpperCase();
   const footerBaseSize = Math.round(Math.min(W, H) * 0.07 * FONT_SCALE);
-  const footerTpl = `900 {size}px "Arial", system-ui`;
+  const footerTpl = `900 {size}px "Arial Narrow", system-ui`;
   const footerSize = fitText(
     footerText,
     Math.round(W * 0.95),
@@ -817,17 +879,17 @@ function drawTemplateSigning(W, H, cx) {
   ctx.restore();
 
   const titleGap = Math.round(H * 0.02);
-  const logoSize = 180;
+  const logoSize = 172;
 
   const logoY = topPad + Math.round(titleSize * 0.96) + titleGap;
-  if (state.sifLogo) drawCover(state.sifLogo, xLeft, logoY, logoSize, logoSize);
+  if (state.sifLogo) drawCover(state.sifLogo, xLeft + 40, logoY, logoSize, logoSize);
 
   const blockY = logoY + logoSize + Math.round(H * 0.03);
 
   const ovalW = Math.round(W * 1.06);
   const ovalH = Math.round(H * 0.96);
-  const ovalX = Math.round(W * 0.22);
-  const ovalY = Math.round(blockY - H * 0.035);
+  const ovalX = Math.round(W * 0.24);
+  const ovalY = Math.round(blockY - H * 0.15);
 
   const frameW = Math.max(8, Math.round(Math.min(W, H) * 0.008));
   drawOvalFramed(state.playerImage, ovalX, ovalY, ovalW, ovalH, COLORS.blue, frameW);
@@ -858,8 +920,12 @@ function drawTemplateSigning(W, H, cx) {
   const totalH = lineTop ? (lh + gap + lh) : lh;
   const nameTopY = Math.round(H - bottomPad - totalH);
 
-  if (lineTop) ctx.fillText(lineTop, xLeft, nameTopY);
-  ctx.fillText(lineBottom, xLeft, nameTopY + (lineTop ? (lh + gap) : 0));
+  const padTop = 6;
+  const padBottom = 1;
+  const padRight = 24;
+
+  if (lineTop) drawNameLineWithBg(lineTop, xLeft, nameTopY, size, padTop, padBottom, padRight);
+  drawNameLineWithBg(lineBottom, xLeft, nameTopY + (lineTop ? (lh + gap) : 0), size, padTop, padBottom, padRight);
 
   ctx.restore();
 
@@ -1048,6 +1114,8 @@ el("awayTeam")?.addEventListener("input", async () => {
   draw();
 });
 
+el("league")?.addEventListener("input", () => draw());
+el("round")?.addEventListener("change", () => draw());
 el("venue")?.addEventListener("input", () => draw());
 el("homeScore")?.addEventListener("input", () => draw());
 el("awayScore")?.addEventListener("input", () => draw());

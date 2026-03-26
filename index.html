@@ -17,7 +17,7 @@
     <div class="tabs">
       <button class="tab active" data-template="match">Matchkort</button>
       <button class="tab" data-template="final">Resultat</button>
-      <!-- <button class="tab" data-template="signing">Nyförvärv</button> -->
+      <button class="tab" data-template="signing">Nyförvärv</button>
       <!-- <button class="tab" data-template="announce">Inlägg</button> -->
     </div>
 
@@ -51,15 +51,29 @@
               <input id="bannerText" type="text" value="MATCHDAG" />
             </label>
 
-            <label>
-              Hemmalag
-              <input id="homeTeam" type="text" value="Säters IF FK" />
-            </label>
+            <div class="row">
+              <label>
+                Serie
+                <input id="league" type="text" value="" />
+              </label>
 
-            <label>
-              Bortalag
-              <input id="awayTeam" type="text" value="" />
-            </label>
+              <label>
+                Omgång
+                <input id="round" type="number" inputmode="numeric" />
+              </label>
+            </div>
+
+            <div class="row">
+              <label>
+                Hemmalag
+                <input id="homeTeam" type="text" value="Säters IF FK" />
+              </label>
+              
+              <label>
+                Bortalag
+                <input id="awayTeam" type="text" value="" />
+              </label>
+            </div> 
 
             <div class="row">
               <label>
