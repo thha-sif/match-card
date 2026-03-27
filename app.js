@@ -32,6 +32,7 @@ const COLORS = {
 };
 
 let activeTemplate = "match";
+let currentMatch = null;
 
 function getSelectedFormat() {
   const select = el("format");
@@ -145,6 +146,8 @@ function fillMatchSelect(matches) {
 async function applyMatchToForm(m) {
   if (!m) return;
 
+  currentMatch = m;
+
   el("homeTeam").value = m.home || "";
   el("awayTeam").value = m.away || "";
   if (el("venue")) el("venue").value = m.venue || "";
@@ -180,6 +183,7 @@ function parseMatchesFromYourCSV(text) {
   const iVenue = header.indexOf("plats") !== -1 ? header.indexOf("plats") : header.indexOf("anläggning");
   const iLeague = header.indexOf("tävling");
   const iRound = header.indexOf("omg");
+  const iResult = header.indexOf("resultat");
 
   if (iHome === -1 || iAway === -1 || iDT === -1) return [];
 
@@ -194,6 +198,7 @@ function parseMatchesFromYourCSV(text) {
     const venue = sanitizeVenueFromCSV(venueRaw);
     const league = iLeague !== -1 ? (cols[iLeague] || "") : "";
     const round = iRound !== -1 ? (cols[iRound] || "") : "";
+    const result = iResult !== -1 ? (cols[iResult] || "") : "";
 
     if (!home || !away) continue;
 
@@ -205,7 +210,7 @@ function parseMatchesFromYourCSV(text) {
       time = parts[1] || "";
     }
 
-    matches.push({ home, away, date, time, venue, league, round });
+    matches.push({ home, away, date, time, venue, league, round, result });
   }
 
   return matches;
@@ -287,11 +292,11 @@ const BACKGROUNDS_MATCH = [
 
 const BACKGROUNDS_FINAL = [
   { id: "f1", label: "Säters IP", url: "assets/bg/saters_ip.png" },
-  { id: "f2", label: "Tröja", url: "assets/bg/shirt.png" },
-  { id: "f3", label: "Säter Ultras", url: "assets/bg/ultras.png" },
-  { id: "f4", label: "Match herr", url: "assets/bg/game_m.png" },
-  { id: "f5", label: "Match dam", url: "assets/bg/game_w.png" },
-  { id: "f6", label: "Max", url: "assets/bg/max.png" },
+  { id: "f2", label: "Match herr", url: "assets/bg/game_m.png" },
+  { id: "f3", label: "Match dam", url: "assets/bg/game_w.png" },
+  { id: "f4", label: "Max", url: "assets/bg/max.png" },
+  { id: "f5", label: "Tröja", url: "assets/bg/shirt.png" },
+  { id: "f6", label: "Säter publik", url: "assets/bg/ultras.png" },
 ];
 
 function getActiveBackgroundList() {
@@ -754,8 +759,17 @@ function drawTemplateMatch(W, H, cx, bannerH, logosMeta) {
 }
 
 function drawTemplateFinal(W, H, cx, bannerH, logosMeta) {
-  const hs = ((el("homeScore")?.value || "")).trim() || "0";
-  const as = ((el("awayScore")?.value || "")).trim() || "0";
+  let hs = ((el("homeScore")?.value || "")).trim() || "0";
+  let as = ((el("awayScore")?.value || "")).trim() || "0";
+
+  if (currentMatch && currentMatch.result && currentMatch.result.trim() !== "") {
+    const parts = currentMatch.result.trim().split(" - ");
+    if (parts.length === 2) {
+      hs = parts[0].trim() || "0";
+      as = parts[1].trim() || "0";
+    }
+  }
+
   const scoreText = `${hs}-${as}`;
 
   const baseTop =

@@ -4,6 +4,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Cache-Control" content="public, max-age=864000" />
+  <meta name="description" content="Skapa anpassade matchkort, resultatannonseringar och grafik till sociala medier för fotboll." />
   <title>Bildgenerator</title>
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -273,7 +275,12 @@
     </main>
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js" defer></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js');
+    }
+  </script>
 </body>
 
 </html>
