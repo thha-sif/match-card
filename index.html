@@ -20,7 +20,7 @@
       <button class="tab active" data-template="match">Matchkort</button>
       <button class="tab" data-template="final">Resultat</button>
       <button class="tab" data-template="signing">Nyförvärv</button>
-      <!-- <button class="tab" data-template="announce">Inlägg</button> -->
+      <button class="tab" data-template="announce">Inlägg</button>
     </div>
 
     <main class="grid">
@@ -184,12 +184,12 @@
             </label>
 
           <label>
-            Förnamn (valfritt)
+            Förnamn
             <input id="playerFirstName" type="text" placeholder="Förnamn" />
           </label>
           
           <label>
-            Efternamn (valfritt)
+            Efternamn
             <input id="playerLastName" type="text" placeholder="Efternamn" />
           </label>
 
@@ -225,15 +225,15 @@
           
             <label>
               Sidfot
-              <input id="announceFooter" type="text" placeholder="t.ex. satersiffotboll.se" />
+              <input id="announceFooter" type="text" placeholder="laget.se/satersiffk" maxlength="20"/>
             </label>
           
             <label>
               Sidfotens färg
               <select id="announceFooterColor">
-                <option value="blue" selected>Säterblå</option>
-                <option value="woodred">Träröd</option>
-                <option value="green">Tallgrön</option>
+                <option value="blue" selected>Säterblå (allmänt)</option>
+                <option value="green">Tallgrön (folkhälsa, gåfotboll)</option>
+                <option value="woodred">Träröd (övriga meddelanden)</option>
               </select>
             </label>
           </div>
@@ -267,7 +267,7 @@
         </div>
 
         <div class="actions">
-          <button id="resetBtn" class="btn">↩ Återställ</button>
+          <button id="resetBtn" class="btn">✖ Återställ</button>
           <button id="renderBtn" class="btn">↻ Uppdatera</button>
           <button id="downloadBtn" class="btn primary">⬇ Ladda ned</button>
         </div>

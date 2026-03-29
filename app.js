@@ -20,6 +20,7 @@ const state = {
   playerImage: null,
   signingBg: null,
   sifLogo: null,
+  trimmedLeague: "",
 };
 
 const COLORS = {
@@ -27,8 +28,8 @@ const COLORS = {
   white: "#FFFFFF",
   offwhite: "#F4F2EE",
   midgray: "#C5C0B7",
-  woodred: "#B4552C",
-  green: "#23513C",
+  woodred: "#93331D",
+  green: "#306B34",
 };
 
 let activeTemplate = "match";
@@ -143,7 +144,7 @@ function fillMatchSelect(matches) {
   });
 }
 
-async function applyMatchToForm(m) {
+function populateMatchFields(m) {
   if (!m) return;
 
   currentMatch = m;
@@ -154,12 +155,21 @@ async function applyMatchToForm(m) {
   if (m.date && el("date")) el("date").value = m.date;
   if (m.time && el("time")) el("time").value = m.time;
 
-  if (el("league")) el("league").value = m.league || "";
+  state.trimmedLeague = trimLeague(m.league || "");
+  if (el("league")) el("league").value = state.trimmedLeague;
   if (el("round")) el("round").value = m.round || "";
+}
 
+async function loadAssetsAndDraw() {
   await autoLoadHomeLogo();
   await autoLoadAwayLogo();
   draw();
+}
+
+async function applyMatchToForm(m) {
+  if (!m) return;
+  populateMatchFields(m);
+  await loadAssetsAndDraw();
 }
 
 function sanitizeVenueFromCSV(v) {
@@ -277,7 +287,11 @@ el("loadCsvBtn")?.addEventListener("click", async (e) => {
 el("matchSelect")?.addEventListener("change", async () => {
   const idx = parseInt(el("matchSelect").value, 10);
   if (Number.isNaN(idx)) return;
-  await applyMatchToForm(csvMatches[idx]);
+  const match = csvMatches[idx];
+  if (!match) return;
+
+  populateMatchFields(match);
+  await loadAssetsAndDraw();
 });
 
 /* BACKGROUNDS */
@@ -296,7 +310,7 @@ const BACKGROUNDS_FINAL = [
   { id: "f3", label: "Match dam", url: "assets/bg/game_w.png" },
   { id: "f4", label: "Max", url: "assets/bg/max.png" },
   { id: "f5", label: "Tröja", url: "assets/bg/shirt.png" },
-  { id: "f6", label: "Säter publik", url: "assets/bg/ultras.png" },
+  { id: "f6", label: "Säter publik", url: "assets/bg/stand.png" },
 ];
 
 function getActiveBackgroundList() {
@@ -605,7 +619,7 @@ function drawBanner(W, H, cx, text) {
   const bannerSize = fitText(bannerText, Math.round(W * 0.9), bannerBaseSize, 18, bannerTpl);
 
   // league + round under bannerText (smaller)
-  const league = trimLeague(el("league")?.value || "");
+  const league = state.trimmedLeague;
   const round = (el("round")?.value || "").trim();
   const subText = [league, round ? `OMGÅNG ${round}` : ""].filter(Boolean).join(" • ");
 
@@ -958,37 +972,102 @@ function drawTemplateSigning(W, H, cx) {
 
 function drawTemplateAnnouncement(W, H, cx) {
   const title = ((el("announceTitle")?.value || "")).trim() || "MEDDELANDE";
+  const subtitle = ((el("announceSubtitle")?.value || "")).trim();
   const body = ((el("announceBody")?.value || "")).trim() || "Skriv din text här…";
+  const footerText = ((el("announceFooter")?.value || "")).trim() || "laget.se/satersiffk";
+  const footerColorKey = ((el("announceFooterColor")?.value || "blue")).trim().toLowerCase();
+  const footerColor = COLORS[footerColorKey] || COLORS.blue;
+
+  const xLeft = Math.round(W * 0.06);
+  const maxW = Math.round(W * 0.9);
+  const topPad = Math.round(H * 0.06);
 
   const titleTpl = `900 {size}px "Segoe UI", system-ui`;
-  const titleBase = Math.round(Math.min(W, H) * 0.1 * FONT_SCALE);
-  const titleSize = fitText(title.toUpperCase(), Math.round(W * 0.9), titleBase, 18, titleTpl);
-  const y0 = Math.round(H * 0.22);
+  const titleBase = Math.round(H * 0.09 * FONT_SCALE);
+  const titleText = title.toUpperCase();
+  const titleSize = fitText(titleText, maxW, titleBase, 18, titleTpl);
+
+  const subtitleTpl = `700 {size}px "Segoe UI", system-ui`;
+  const subtitleBase = Math.max(14, Math.round(titleSize * 0.46));
+  const subtitleText = subtitle;
+  const subtitleSize = subtitleText
+    ? fitText(subtitleText, maxW, subtitleBase, 12, subtitleTpl)
+    : 0;
+
+  const lineGap = subtitleText ? Math.max(4, Math.round(titleSize * 0.08)) : 0;
+  const blockPadTop = Math.max(6, Math.round(H * 0.008));
+  const blockPadBottom = Math.max(6, Math.round(H * 0.008));
+
+  const textHeight = Math.round(
+    titleSize + (subtitleText ? lineGap + subtitleSize : 0)
+  );
+  const blockH = Math.round(textHeight + blockPadTop + blockPadBottom);
 
   ctx.save();
+  ctx.fillStyle = COLORS.blue;
+  ctx.fillRect(0, topPad - blockPadTop, W, blockH);
+
   ctx.fillStyle = COLORS.white;
   ctx.font = titleTpl.replace("{size}", titleSize);
-  ctx.textAlign = "left";
+  ctx.textAlign = "center";
   ctx.textBaseline = "top";
-  ctx.fillText(title.toUpperCase(), centeredX(title.toUpperCase(), cx), y0);
+  ctx.fillText(titleText, Math.round(W / 2), topPad);
+
+  if (subtitleText) {
+    ctx.font = subtitleTpl.replace("{size}", subtitleSize);
+    const subtitleY = topPad + titleSize + lineGap;
+    ctx.fillText(subtitleText, Math.round(W / 2), subtitleY);
+  }
 
   const bodyTpl = `700 {size}px "Segoe UI", system-ui`;
   const bodySize = Math.round(Math.min(W, H) * 0.045 * FONT_SCALE);
   ctx.font = bodyTpl.replace("{size}", bodySize);
 
-  const maxW = Math.round(W * 0.84);
-  const lines = wrapLines(body, maxW);
+  const bodyMaxW = Math.round(W * 0.86);
+  const lines = wrapLines(body, bodyMaxW);
   const lh = Math.round(bodySize * 1.25);
 
-  let y = y0 + Math.round(titleSize * 1.3);
-  for (let i = 0; i < Math.min(lines.length, 6); i++) {
+  ctx.textAlign = "left";
+  let y = topPad + blockH + Math.max(10, Math.round(H * 0.02));
+  for (let i = 0; i < Math.min(lines.length, 10); i++) {
     const line = lines[i];
-    ctx.fillText(line, centeredX(line, cx), y);
+    ctx.fillText(line, xLeft, y);
     y += lh;
   }
 
+  if (state.sifLogo) {
+    const logoH = Math.min(172, Math.round(H * 0.2));
+    const logoW = Math.round(logoH * (state.sifLogo.width / state.sifLogo.height));
+    const logoX = Math.round(W * 0.06);
+    const logoY = Math.round(H * 0.96 - logoH);
+    drawCover(state.sifLogo, logoX, logoY, logoW, logoH, 1);
+  }
+
+  const ribbonH = Math.max(54, Math.round(H * 0.08));
+  const ribbonW = Math.max(300, Math.round(W * 0.72));
+  const ribbonAngle = (-28 * Math.PI) / 180;
+
+  const footerTpl = `900 {size}px "Arial Narrow", system-ui`;
+  const footerBase = Math.round(Math.min(W, H) * 0.05 * FONT_SCALE);
+  const footerSize = fitText(footerText.toUpperCase(), Math.round(ribbonW * 0.7), footerBase, 14, footerTpl);
+  const offsetX = Math.round(W * 0.005);
+  const offsetY = Math.round(H * 0.19);
+
+  ctx.save();
+  ctx.translate(W - offsetX, H - offsetY);
+  ctx.rotate(ribbonAngle);
+
+  ctx.fillStyle = footerColor;
+  ctx.fillRect(-ribbonW, -ribbonH, ribbonW + Math.round(W * 0.06), ribbonH + Math.round(H * 0.02));
+
+  ctx.fillStyle = COLORS.white;
+  ctx.font = footerTpl.replace("{size}", footerSize);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(footerText, -Math.round(ribbonW * 0.36), -Math.round(ribbonH * 0.40));
   ctx.restore();
-  drawFooterBar(W, H, cx, "");
+
+  ctx.restore();
 }
 
 const TEMPLATES = {
@@ -1021,8 +1100,8 @@ function draw() {
 
   drawBase(W, H);
 
-  if (activeTemplate === "signing") {
-    TEMPLATES.signing.draw(W, H, cx);
+  if (activeTemplate === "signing" || activeTemplate === "announce") {
+    TEMPLATES[activeTemplate].draw(W, H, cx);
     el("downloadBtn").disabled = false;
     return;
   }
@@ -1128,7 +1207,10 @@ el("awayTeam")?.addEventListener("input", async () => {
   draw();
 });
 
-el("league")?.addEventListener("input", () => draw());
+el("league")?.addEventListener("input", () => {
+  state.trimmedLeague = (el("league")?.value || "").trim();
+  draw();
+});
 el("round")?.addEventListener("change", () => draw());
 el("venue")?.addEventListener("input", () => draw());
 el("homeScore")?.addEventListener("input", () => draw());
@@ -1168,6 +1250,12 @@ document.addEventListener(
 ["playerFirstName", "playerLastName", "playerNumber"].forEach((id) => {
   el(id)?.addEventListener("input", () => draw());
 });
+
+["announceTitle", "announceSubtitle", "announceBody", "announceFooter"].forEach((id) => {
+  el(id)?.addEventListener("input", () => draw());
+});
+
+el("announceFooterColor")?.addEventListener("change", () => draw());
 
 el("playerImage")?.addEventListener("change", async () => {
   await handleFiles();
