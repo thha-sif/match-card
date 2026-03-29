@@ -16,6 +16,7 @@ const state = {
   placeholderLogo: null,
   bg: null,
   finalBg: null,
+  announceBg: null,
   bgMode: "preset",
   playerImage: null,
   signingBg: null,
@@ -313,8 +314,16 @@ const BACKGROUNDS_FINAL = [
   { id: "f6", label: "Säter publik", url: "assets/bg/stand.png" },
 ];
 
+const BACKGROUNDS_ANNOUNCE = [
+  { id: "abg1", label: "Trävägg", url: "assets/bg/blue_wood_sign.png" },
+  { id: "abg2", label: "Gräs", url: "assets/bg/blue_grass.png" },
+  { id: "abg3", label: "Fotboll", url: "assets/bg/football.png" },
+];
+
 function getActiveBackgroundList() {
-  return activeTemplate === "final" ? BACKGROUNDS_FINAL : BACKGROUNDS_MATCH;
+  if (activeTemplate === "final") return BACKGROUNDS_FINAL;
+  if (activeTemplate === "announce") return BACKGROUNDS_ANNOUNCE;
+  return BACKGROUNDS_MATCH;
 }
 
 function ensureBackgroundSelectPopulated() {
@@ -419,6 +428,10 @@ async function handleFiles() {
   const finalBgInput = el("finalBackground");
   const finalBgFile = finalBgInput?.files?.[0];
   if (finalBgFile) state.finalBg = await loadFileImage(finalBgFile);
+
+  const announceBgInput = el("announceBackground");
+  const announceBgFile = announceBgInput?.files?.[0];
+  if (announceBgFile) state.announceBg = await loadFileImage(announceBgFile);
 
   const playerInput = el("playerImage");
   const playerFile = playerInput?.files?.[0];
@@ -595,7 +608,8 @@ function drawBase(W, H) {
   ctx.fillRect(0, 0, W, H);
 
   const useFinal = activeTemplate === "final" && state.finalBg;
-  const bgToDraw = useFinal ? state.finalBg : state.bg;
+  const useAnnounce = activeTemplate === "announce" && state.announceBg;
+  const bgToDraw = useFinal ? state.finalBg : (useAnnounce ? state.announceBg : state.bg);
 
   if (bgToDraw) {
     if (useFinal)
@@ -1143,6 +1157,12 @@ function bindTabs() {
         state.finalBg = null;
       }
 
+      if (activeTemplate !== "announce") {
+        const ab = el("announceBackground");
+        if (ab) ab.value = "";
+        state.announceBg = null;
+      }
+
       if (activeTemplate === "signing") await ensureSigningBg();
 
       tabs.forEach((b) => b.classList.remove("active"));
@@ -1224,6 +1244,11 @@ el("bgSelect")?.addEventListener("change", async () => {
 });
 
 el("finalBackground")?.addEventListener("change", async () => {
+  await handleFiles();
+  draw();
+});
+
+el("announceBackground")?.addEventListener("change", async () => {
   await handleFiles();
   draw();
 });
