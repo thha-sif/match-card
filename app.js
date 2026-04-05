@@ -17,7 +17,11 @@ const state = {
   bg: null,
   finalBg: null,
   announceBg: null,
-  bgMode: "preset",
+  selectedBgByTemplate: {
+    match: null,
+    final: null,
+    announce: null,
+  },
   playerImage: null,
   signingBg: null,
   sifLogo: null,
@@ -28,7 +32,6 @@ const COLORS = {
   blue: "#013888",
   white: "#FFFFFF",
   offwhite: "#F4F2EE",
-  midgray: "#C5C0B7",
   woodred: "#93331D",
   green: "#306B34",
 };
@@ -165,12 +168,6 @@ async function loadAssetsAndDraw() {
   await autoLoadHomeLogo();
   await autoLoadAwayLogo();
   draw();
-}
-
-async function applyMatchToForm(m) {
-  if (!m) return;
-  populateMatchFields(m);
-  await loadAssetsAndDraw();
 }
 
 function sanitizeVenueFromCSV(v) {
@@ -326,11 +323,19 @@ function getActiveBackgroundList() {
   return BACKGROUNDS_MATCH;
 }
 
+function rememberSelectedBackgroundForActiveTemplate() {
+  const sel = el("bgSelect");
+  if (!sel) return;
+  if (!state.selectedBgByTemplate[activeTemplate] && !sel.value) return;
+  state.selectedBgByTemplate[activeTemplate] = sel.value || null;
+}
+
 function ensureBackgroundSelectPopulated() {
   const sel = el("bgSelect");
   if (!sel) return;
 
   const list = getActiveBackgroundList();
+  const remembered = state.selectedBgByTemplate[activeTemplate];
   const prev = sel.value;
 
   sel.innerHTML = "";
@@ -340,6 +345,12 @@ function ensureBackgroundSelectPopulated() {
     opt.textContent = bg.label;
     sel.appendChild(opt);
   }
+
+  if (remembered && list.some((b) => b.id === remembered)) {
+    sel.value = remembered;
+    return;
+  }
+
   sel.value = list.some((b) => b.id === prev) ? prev : (list[0]?.id || "");
 }
 
@@ -352,17 +363,14 @@ async function applySelectedBackground() {
 
   if (!bg?.url) {
     state.bg = null;
-    state.bgMode = "preset";
     return;
   }
 
   try {
     state.bg = await loadImageFromURL(bg.url);
-    state.bgMode = "preset";
   } catch (e) {
     console.warn("Kunde inte ladda vald bakgrund:", bg.url, e);
     state.bg = null;
-    state.bgMode = "preset";
   }
 }
 
@@ -392,33 +400,79 @@ async function ensureSigningBg() {
   }
 }
 
+function getLogoInputs(side) {
+  if (side === "home") {
+    return [el("homeLogoMatch"), el("homeLogoFinal")].filter(Boolean);
+  }
+  return [el("awayLogoMatch"), el("awayLogoFinal")].filter(Boolean);
+}
+
+function getSelectedLogoFile(side) {
+  const inputs = getLogoInputs(side);
+  for (const input of inputs) {
+    const file = input?.files?.[0];
+    if (file) return { file, input };
+  }
+  return { file: null, input: null };
+}
+
+function hasManualLogoFile(side) {
+  return Boolean(getSelectedLogoFile(side).file);
+}
+
+function clearLogoInputs(side) {
+  getLogoInputs(side).forEach((input) => {
+    input.value = "";
+  });
+}
+
+function syncLogoInputAcrossTabs(side, sourceInput) {
+  const sourceFile = sourceInput?.files?.[0] || null;
+  const inputs = getLogoInputs(side);
+
+  for (const input of inputs) {
+    if (input === sourceInput) continue;
+
+    if (!sourceFile) {
+      input.value = "";
+      continue;
+    }
+
+    try {
+      const dt = new DataTransfer();
+      dt.items.add(sourceFile);
+      input.files = dt.files;
+    } catch {
+      // Ignore in browsers that block programmatic file assignment.
+    }
+  }
+}
+
 async function handleFiles() {
   await ensureDefaults();
 
   const transparentTypes = ["image/png", "image/webp", "image/gif"];
 
-  const homeInput = el("homeLogo");
-  const homeFile = homeInput?.files?.[0];
+  const { file: homeFile, input: homeInput } = getSelectedLogoFile("home");
   if (homeFile) {
     if (!transparentTypes.includes(homeFile.type)) {
       alert(
         "Endast PNG, WebP eller GIF-filer (med transparens) är tillåtna för hemmaloga."
       );
-      homeInput.value = "";
+      clearLogoInputs("home");
       state.homeLogo = null;
     } else {
       state.homeLogo = await loadFileImage(homeFile);
     }
   }
 
-  const awayInput = el("awayLogo");
-  const awayFile = awayInput?.files?.[0];
+  const { file: awayFile, input: awayInput } = getSelectedLogoFile("away");
   if (awayFile) {
     if (!transparentTypes.includes(awayFile.type)) {
       alert(
         "Endast PNG, WebP eller GIF-filer (med transparens) är tillåtna för bortalogga."
       );
-      awayInput.value = "";
+      clearLogoInputs("away");
       state.awayLogo = null;
     } else {
       state.awayLogo = await loadFileImage(awayFile);
@@ -450,8 +504,7 @@ async function autoLoadHomeLogo() {
   if (key === lastHomeKey) return;
   lastHomeKey = key;
 
-  const homeFile = el("homeLogo")?.files?.[0];
-  if (homeFile) return;
+  if (hasManualLogoFile("home")) return;
 
   if (!homeTeam) {
     state.homeLogo = null;
@@ -474,8 +527,7 @@ async function autoLoadAwayLogo() {
   if (key === lastAwayKey) return;
   lastAwayKey = key;
 
-  const awayFile = el("awayLogo")?.files?.[0];
-  if (awayFile) return;
+  if (hasManualLogoFile("away")) return;
 
   if (!awayTeam) {
     state.awayLogo = null;
@@ -986,7 +1038,6 @@ function drawTemplateSigning(W, H, cx) {
 
 function drawTemplateAnnouncement(W, H, cx) {
   const title = ((el("announceTitle")?.value || "")).trim() || "MEDDELANDE";
-  const subtitle = ((el("announceSubtitle")?.value || "")).trim();
   const body = ((el("announceBody")?.value || "")).trim() || "Skriv din text här…";
   const footerText = ((el("announceFooter")?.value || "")).trim() || "laget.se/satersiffk";
   const footerColorKey = ((el("announceFooterColor")?.value || "blue")).trim().toLowerCase();
@@ -1000,21 +1051,10 @@ function drawTemplateAnnouncement(W, H, cx) {
   const titleBase = Math.round(H * 0.09 * FONT_SCALE);
   const titleText = title.toUpperCase();
   const titleSize = fitText(titleText, maxW, titleBase, 18, titleTpl);
-
-  const subtitleTpl = `700 {size}px "Segoe UI", system-ui`;
-  const subtitleBase = Math.max(14, Math.round(titleSize * 0.46));
-  const subtitleText = subtitle;
-  const subtitleSize = subtitleText
-    ? fitText(subtitleText, maxW, subtitleBase, 12, subtitleTpl)
-    : 0;
-
-  const lineGap = subtitleText ? Math.max(4, Math.round(titleSize * 0.08)) : 0;
   const blockPadTop = Math.max(6, Math.round(H * 0.008));
   const blockPadBottom = Math.max(6, Math.round(H * 0.008));
 
-  const textHeight = Math.round(
-    titleSize + (subtitleText ? lineGap + subtitleSize : 0)
-  );
+  const textHeight = Math.round(titleSize);
   const blockH = Math.round(textHeight + blockPadTop + blockPadBottom);
 
   ctx.save();
@@ -1027,12 +1067,6 @@ function drawTemplateAnnouncement(W, H, cx) {
   ctx.textBaseline = "top";
   ctx.fillText(titleText, Math.round(W / 2), topPad);
 
-  if (subtitleText) {
-    ctx.font = subtitleTpl.replace("{size}", subtitleSize);
-    const subtitleY = topPad + titleSize + lineGap;
-    ctx.fillText(subtitleText, Math.round(W / 2), subtitleY);
-  }
-
   const bodyTpl = `700 {size}px "Segoe UI", system-ui`;
   const bodySize = Math.round(Math.min(W, H) * 0.045 * FONT_SCALE);
   ctx.font = bodyTpl.replace("{size}", bodySize);
@@ -1043,7 +1077,7 @@ function drawTemplateAnnouncement(W, H, cx) {
 
   ctx.textAlign = "left";
   let y = topPad + blockH + Math.max(10, Math.round(H * 0.02));
-  for (let i = 0; i < Math.min(lines.length, 10); i++) {
+  for (let i = 0; i < Math.min(lines.length, 11); i++) {
     const line = lines[i];
     ctx.fillText(line, xLeft, y);
     y += lh;
@@ -1149,6 +1183,8 @@ function bindTabs() {
       const t = btn.dataset.template;
       if (!TEMPLATES[t]) return;
 
+      rememberSelectedBackgroundForActiveTemplate();
+
       activeTemplate = t;
 
       if (activeTemplate !== "final") {
@@ -1207,14 +1243,20 @@ el("downloadBtn")?.addEventListener("click", () => {
   );
 });
 
-el("homeLogo")?.addEventListener("change", async () => {
-  await handleFiles();
-  draw();
+["homeLogoMatch", "homeLogoFinal"].forEach((id) => {
+  el(id)?.addEventListener("change", async (e) => {
+    syncLogoInputAcrossTabs("home", e.target);
+    await handleFiles();
+    draw();
+  });
 });
 
-el("awayLogo")?.addEventListener("change", async () => {
-  await handleFiles();
-  draw();
+["awayLogoMatch", "awayLogoFinal"].forEach((id) => {
+  el(id)?.addEventListener("change", async (e) => {
+    syncLogoInputAcrossTabs("away", e.target);
+    await handleFiles();
+    draw();
+  });
 });
 
 el("homeTeam")?.addEventListener("input", async () => {
@@ -1239,6 +1281,7 @@ el("finalMessage")?.addEventListener("input", () => draw());
 el("format")?.addEventListener("change", () => draw());
 
 el("bgSelect")?.addEventListener("change", async () => {
+  rememberSelectedBackgroundForActiveTemplate();
   await applySelectedBackground();
   draw();
 });
@@ -1276,7 +1319,7 @@ document.addEventListener(
   el(id)?.addEventListener("input", () => draw());
 });
 
-["announceTitle", "announceSubtitle", "announceBody", "announceFooter"].forEach((id) => {
+["announceTitle", "announceBody", "announceFooter"].forEach((id) => {
   el(id)?.addEventListener("input", () => draw());
 });
 

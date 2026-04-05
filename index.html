@@ -38,13 +38,6 @@
             </label>
           </div>
 
-          <!-- BAKGRUND: match + final + announce (döljs på signing) -->
-          <div class="templateFields" data-template="match" data-template-alt="final" data-template-alt2="announce">
-            <label>
-              Bakgrund
-              <select id="bgSelect"></select>
-            </label>
-          </div>
 
           <!-- MATCH -->
           <div class="templateFields" data-template="match">
@@ -96,30 +89,25 @@
             <div class="row">
               <label>
                 Hemmalogga (vid behov)
-                <input id="homeLogo" type="file" accept="image/*" />
+                <input id="homeLogoMatch" type="file" accept="image/*" />
               </label>
               <label>
                 Bortalogga (vid behov)
-                <input id="awayLogo" type="file" accept="image/*" />
+                <input id="awayLogoMatch" type="file" accept="image/*" />
               </label>
             </div>
           </div>
 
           <!-- FINAL -->
           <div class="templateFields" data-template="final" style="display:none;">
-            <label>
-              Ladda gärna upp bild från matchen (ersätter bakgrund)
-              <input id="finalBackground" type="file" accept="image/*" />
-            </label>
-
             <div class="row">
               <label>
                 Hemmalogga (vid behov)
-                <input id="homeLogo" type="file" accept="image/*" />
+                <input id="homeLogoFinal" type="file" accept="image/*" />
               </label>
               <label>
                 Bortalogga (vid behov)
-                <input id="awayLogo" type="file" accept="image/*" />
+                <input id="awayLogoFinal" type="file" accept="image/*" />
               </label>
             </div>
 
@@ -212,12 +200,7 @@
               Rubrik
               <input id="announceTitle" type="text" placeholder="Rubrik" />
             </label>
-          
-            <label>
-              Underrubrik
-              <input id="announceSubtitle" type="text" placeholder="Underrubrik" />
-            </label>
-          
+
             <label>
               Brödtext
               <textarea id="announceBody" rows="5" placeholder="Skriv din text här…"></textarea>
@@ -237,7 +220,22 @@
               </select>
             </label>
           </div>
+          
+          <div class="templateFields" data-template="final" style="display:none;">
+            <label>
+              Ladda gärna upp bild från matchen (ersätter bakgrund)
+              <input id="finalBackground" type="file" accept="image/*" />
+            </label>
+          </div>
 
+          <!-- BAKGRUND: match + final + announce (döljs på signing) -->
+          <div class="templateFields" data-template="match" data-template-alt="final" data-template-alt2="announce">
+            <label>
+              Bakgrund
+              <select id="bgSelect"></select>
+            </label>
+          </div>
+          
           <!-- FORMAT: visas på alla templates (inkl. signing) -->
           <label>
             Bildformat
@@ -253,9 +251,11 @@
           <div class="templateFields" data-template="match">
             <label>
               Valfritt: Importera matchdata via CSV
-              <input id="csvFile" type="file" accept=".csv,text/csv" />
             </label>
-            <button id="loadCsvBtn" class="btn">Läs CSV</button>
+            <div class="row csvControlsRow">
+              <input id="csvFile" type="file" accept=".csv,text/csv" />
+              <button id="loadCsvBtn" class="btn">Läs CSV</button>
+            </div>
           </div>
         </div>
       </section>
