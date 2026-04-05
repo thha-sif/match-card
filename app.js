@@ -498,7 +498,7 @@ function formatDate(dateStr) {
     weekday: "short",
     day: "2-digit",
     month: "short",
-  });
+  }).replace(/\./g, "");
 }
 
 function drawCover(img, x, y, w, h, alpha = 1) {
