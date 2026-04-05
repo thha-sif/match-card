@@ -13,6 +13,10 @@ const SCORERS_TOP_GAP = 20;
 const state = {
   homeLogo: null,
   awayLogo: null,
+  manualLogoFiles: {
+    home: null,
+    away: null,
+  },
   placeholderLogo: null,
   bg: null,
   finalBg: null,
@@ -38,6 +42,7 @@ const COLORS = {
 
 let activeTemplate = "match";
 let currentMatch = null;
+let bgApplyToken = 0;
 
 function getSelectedFormat() {
   const select = el("format");
@@ -288,6 +293,14 @@ el("matchSelect")?.addEventListener("change", async () => {
   const match = csvMatches[idx];
   if (!match) return;
 
+  // matchSelect is an explicit logo source; clear uploaded logos so latest choice wins.
+  clearLogoInputs("home");
+  clearLogoInputs("away");
+  state.homeLogo = null;
+  state.awayLogo = null;
+  lastHomeKey = "";
+  lastAwayKey = "";
+
   populateMatchFields(match);
   await loadAssetsAndDraw();
 });
@@ -326,7 +339,8 @@ function getActiveBackgroundList() {
 function rememberSelectedBackgroundForActiveTemplate() {
   const sel = el("bgSelect");
   if (!sel) return;
-  if (!state.selectedBgByTemplate[activeTemplate] && !sel.value) return;
+
+  if (!(activeTemplate in state.selectedBgByTemplate)) return;
   state.selectedBgByTemplate[activeTemplate] = sel.value || null;
 }
 
@@ -360,17 +374,25 @@ async function applySelectedBackground() {
 
   const choice = sel.value;
   const bg = getActiveBackgroundList().find((b) => b.id === choice);
+  const requestToken = ++bgApplyToken;
 
   if (!bg?.url) {
-    state.bg = null;
+    if (requestToken === bgApplyToken) state.bg = null;
     return;
   }
 
   try {
-    state.bg = await loadImageFromURL(bg.url);
+    const img = await loadImageFromURL(bg.url);
+
+    // Ignore stale async results from older tab/background selections.
+    if (requestToken !== bgApplyToken) return;
+    if (el("bgSelect")?.value !== choice) return;
+
+    state.bg = img;
   } catch (e) {
     console.warn("Kunde inte ladda vald bakgrund:", bg.url, e);
-    state.bg = null;
+
+    if (requestToken === bgApplyToken) state.bg = null;
   }
 }
 
@@ -401,10 +423,17 @@ async function ensureSigningBg() {
 }
 
 function getLogoInputs(side) {
+  const isFinal = activeTemplate === "final";
+
   if (side === "home") {
-    return [el("homeLogoMatch"), el("homeLogoFinal")].filter(Boolean);
+    return isFinal
+      ? [el("homeLogoFinal"), el("homeLogoMatch")].filter(Boolean)
+      : [el("homeLogoMatch"), el("homeLogoFinal")].filter(Boolean);
   }
-  return [el("awayLogoMatch"), el("awayLogoFinal")].filter(Boolean);
+
+  return isFinal
+    ? [el("awayLogoFinal"), el("awayLogoMatch")].filter(Boolean)
+    : [el("awayLogoMatch"), el("awayLogoFinal")].filter(Boolean);
 }
 
 function getSelectedLogoFile(side) {
@@ -416,14 +445,21 @@ function getSelectedLogoFile(side) {
   return { file: null, input: null };
 }
 
+function getEffectiveLogoFile(side) {
+  const manual = state.manualLogoFiles[side] || null;
+  if (manual) return { file: manual, input: null };
+  return getSelectedLogoFile(side);
+}
+
 function hasManualLogoFile(side) {
-  return Boolean(getSelectedLogoFile(side).file);
+  return Boolean(state.manualLogoFiles[side] || getSelectedLogoFile(side).file);
 }
 
 function clearLogoInputs(side) {
   getLogoInputs(side).forEach((input) => {
     input.value = "";
   });
+  state.manualLogoFiles[side] = null;
 }
 
 function syncLogoInputAcrossTabs(side, sourceInput) {
@@ -453,7 +489,7 @@ async function handleFiles() {
 
   const transparentTypes = ["image/png", "image/webp", "image/gif"];
 
-  const { file: homeFile, input: homeInput } = getSelectedLogoFile("home");
+  const { file: homeFile } = getEffectiveLogoFile("home");
   if (homeFile) {
     if (!transparentTypes.includes(homeFile.type)) {
       alert(
@@ -466,7 +502,7 @@ async function handleFiles() {
     }
   }
 
-  const { file: awayFile, input: awayInput } = getSelectedLogoFile("away");
+  const { file: awayFile } = getEffectiveLogoFile("away");
   if (awayFile) {
     if (!transparentTypes.includes(awayFile.type)) {
       alert(
@@ -1187,12 +1223,6 @@ function bindTabs() {
 
       activeTemplate = t;
 
-      if (activeTemplate !== "final") {
-        const fb = el("finalBackground");
-        if (fb) fb.value = "";
-        state.finalBg = null;
-      }
-
       if (activeTemplate !== "announce") {
         const ab = el("announceBackground");
         if (ab) ab.value = "";
@@ -1245,6 +1275,7 @@ el("downloadBtn")?.addEventListener("click", () => {
 
 ["homeLogoMatch", "homeLogoFinal"].forEach((id) => {
   el(id)?.addEventListener("change", async (e) => {
+    state.manualLogoFiles.home = e.target?.files?.[0] || null;
     syncLogoInputAcrossTabs("home", e.target);
     await handleFiles();
     draw();
@@ -1253,6 +1284,7 @@ el("downloadBtn")?.addEventListener("click", () => {
 
 ["awayLogoMatch", "awayLogoFinal"].forEach((id) => {
   el(id)?.addEventListener("change", async (e) => {
+    state.manualLogoFiles.away = e.target?.files?.[0] || null;
     syncLogoInputAcrossTabs("away", e.target);
     await handleFiles();
     draw();
@@ -1281,6 +1313,12 @@ el("finalMessage")?.addEventListener("input", () => draw());
 el("format")?.addEventListener("change", () => draw());
 
 el("bgSelect")?.addEventListener("change", async () => {
+  if (activeTemplate === "final") {
+    const fb = el("finalBackground");
+    if (fb) fb.value = "";
+    state.finalBg = null;
+  }
+
   rememberSelectedBackgroundForActiveTemplate();
   await applySelectedBackground();
   draw();
