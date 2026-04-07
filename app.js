@@ -2,7 +2,7 @@ const el = (id) => document.getElementById(id);
 const canvas = el("card");
 const ctx = canvas.getContext("2d");
 
-const FONT_SCALE = 1.18;
+const FONT_SCALE = 1.1;
 
 const SCORE_FONT_SIZE = 220;
 const SCORERS_FONT_SIZE = 34;
@@ -45,6 +45,14 @@ let currentMatch = null;
 let bgApplyToken = 0;
 
 function getSelectedFormat() {
+  if (activeTemplate === "signing" || activeTemplate === "announce") {
+    return {
+      w: 1080,
+      h: 1350,
+      label: "Inlägg Facebook/Instagram (1080 x 1350)",
+    };
+  }
+
   const select = el("format");
   const [w, h] = select.value.split("x").map(Number);
   const label = select.options[select.selectedIndex].text;
@@ -717,7 +725,7 @@ function drawBanner(W, H, cx, text) {
 
   const bannerText = (text || "MATCHDAG").trim().toUpperCase();
   const bannerBaseSize = Math.round(Math.min(W, H) * 0.13 * FONT_SCALE);
-  const bannerTpl = `900 {size}px "Segoe UI", system-ui`;
+  const bannerTpl = `700 {size}px "Segoe UI", system-ui`;
   const bannerSize = fitText(bannerText, Math.round(W * 0.9), bannerBaseSize, 18, bannerTpl);
 
   // league + round under bannerText (smaller)
@@ -725,7 +733,7 @@ function drawBanner(W, H, cx, text) {
   const round = (el("round")?.value || "").trim();
   const subText = [league, round ? `OMGÅNG ${round}` : ""].filter(Boolean).join(" • ");
 
-  const subTpl = `800 {size}px "Arial Narrow", system-ui`;
+  const subTpl = `700 {size}px "Times New Roman", serif`;
   const subBase = Math.max(14, Math.round(bannerSize * 0.29));
   const subSizeRaw = subText ? fitText(subText, Math.round(W * 0.9), subBase, 12, subTpl) : subBase;
   const subSize = Math.max(10, Math.round(subSizeRaw * 0.78));
@@ -780,7 +788,7 @@ function drawLogosLocked(W, H, bannerH) {
 }
 
 function drawFooterBar(W, H, cx, text) {
-  const footerH = Math.round(H * 0.09);
+  const footerH = Math.round(H * 0.078);
   const footerY = H - footerH;
 
   ctx.fillStyle = COLORS.blue;
@@ -788,10 +796,10 @@ function drawFooterBar(W, H, cx, text) {
 
   const footerText = (text || " ").toUpperCase();
   const footerBaseSize = Math.round(Math.min(W, H) * 0.07 * FONT_SCALE);
-  const footerTpl = `900 {size}px "Arial Narrow", system-ui`;
+  const footerTpl = `700 {size}px "Arial Narrow", system-ui`;
   const footerSize = fitText(
     footerText,
-    Math.round(W * 0.95),
+    Math.round(W * 0.82),
     footerBaseSize,
     16,
     footerTpl
@@ -819,9 +827,9 @@ function drawMatchupStackedCentered({
   const base = Math.round(Math.min(canvas.width, canvas.height) * 0.12 * FONT_SCALE);
   const minSize = 18;
 
-  const homeTpl = `900 {size}px ${fontFamily}`;
-  const awayTpl = `900 {size}px ${fontFamily}`;
-  const vsTpl = `900 {size}px ${fontFamily}`;
+  const homeTpl = `800 {size}px ${fontFamily}`;
+  const awayTpl = `800 {size}px ${fontFamily}`;
+  const vsTpl = `800 {size}px ${fontFamily}`;
 
   const homeSize = fitText(home, maxWidth, base, minSize, homeTpl);
   const awaySize = fitText(away, maxWidth, base, minSize, awayTpl);
@@ -896,7 +904,7 @@ function drawTemplateFinal(W, H, cx, bannerH, logosMeta) {
   const scoreY = baseTop + Math.round(H * 0.25);
 
   ctx.save();
-  ctx.font = `900 ${SCORE_FONT_SIZE}px "Segoe UI", system-ui`;
+  ctx.font = `700 ${SCORE_FONT_SIZE}px "Segoe UI", system-ui`;
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
 
@@ -905,7 +913,7 @@ function drawTemplateFinal(W, H, cx, bannerH, logosMeta) {
 
   const boxX = 0;
   const boxW = W;
-  const boxH = Math.round(SCORE_FONT_SIZE + padY * 2);
+  const boxH = Math.round(SCORE_FONT_SIZE + padY * 1.4);
   const boxY = Math.round(scoreY - padY);
 
   ctx.fillStyle = "rgba(244,242,238,0.65)";
@@ -936,7 +944,7 @@ function drawTemplateFinal(W, H, cx, bannerH, logosMeta) {
   const msg = ((el("finalMessage")?.value || "")).trim();
 
   if (msg) {
-    const msgTpl = `800 {size}px "Segoe UI", system-ui`;
+    const msgTpl = `700 {size}px "Segoe UI", system-ui`;
     const msgBase = Math.round(Math.min(W, H) * 0.06);
     const msgSize = fitText(msg, Math.round(W * 0.92), msgBase, 18, msgTpl);
 
@@ -972,8 +980,8 @@ function drawTemplateFinal(W, H, cx, bannerH, logosMeta) {
 }
 
 function drawTemplateSigning(W, H, cx) {
-  const xLeft = Math.round(W * 0.06);
-  const maxW = Math.round(W * 0.9);
+  const xLeft = Math.round(W * 0.08);
+  const maxW = Math.round(W * 0.84);
 
   const numberRaw = ((el("playerNumber")?.value || "")).trim();
   const number = numberRaw ? `#${numberRaw}` : "";
@@ -996,7 +1004,7 @@ function drawTemplateSigning(W, H, cx) {
   const topPad = Math.round(H * 0.06);
 
   const title = "NYFÖRVÄRV";
-  const titleTpl = `900 {size}px "Segoe UI", system-ui`;
+  const titleTpl = `700 {size}px "Segoe UI", system-ui`;
   const titleBase = Math.round(H * 0.11 * FONT_SCALE);
   const titleSize = fitText(title, maxW, titleBase, 18, titleTpl);
 
@@ -1029,7 +1037,7 @@ function drawTemplateSigning(W, H, cx) {
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
 
-  const nameTpl = `900 {size}px "Segoe UI", system-ui`;
+  const nameTpl = `800 {size}px "Segoe UI", system-ui`;
   const nameBase = Math.round(Math.min(W, H) * 0.16 * FONT_SCALE);
 
   let size = nameBase;
@@ -1067,7 +1075,7 @@ function drawTemplateSigning(W, H, cx) {
   ctx.fillStyle = COLORS.white;
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
-  ctx.font = `900 ${numSize}px "Times New Roman", serif`;
+  ctx.font = `800 ${numSize}px "Times New Roman", serif`;
   if (number) ctx.fillText(number, xLeft, numY);
   ctx.restore();
 }
@@ -1079,11 +1087,11 @@ function drawTemplateAnnouncement(W, H, cx) {
   const footerColorKey = ((el("announceFooterColor")?.value || "blue")).trim().toLowerCase();
   const footerColor = COLORS[footerColorKey] || COLORS.blue;
 
-  const xLeft = Math.round(W * 0.06);
-  const maxW = Math.round(W * 0.9);
+  const xLeft = Math.round(W * 0.08);
+  const maxW = Math.round(W * 0.84);
   const topPad = Math.round(H * 0.06);
 
-  const titleTpl = `900 {size}px "Segoe UI", system-ui`;
+  const titleTpl = `700 {size}px "Segoe UI", system-ui`;
   const titleBase = Math.round(H * 0.09 * FONT_SCALE);
   const titleText = title.toUpperCase();
   const titleSize = fitText(titleText, maxW, titleBase, 18, titleTpl);
@@ -1103,7 +1111,7 @@ function drawTemplateAnnouncement(W, H, cx) {
   ctx.textBaseline = "top";
   ctx.fillText(titleText, Math.round(W / 2), topPad);
 
-  const bodyTpl = `700 {size}px "Segoe UI", system-ui`;
+  const bodyTpl = `600 {size}px "Segoe UI", system-ui`;
   const bodySize = Math.round(Math.min(W, H) * 0.045 * FONT_SCALE);
   ctx.font = bodyTpl.replace("{size}", bodySize);
 
@@ -1113,7 +1121,7 @@ function drawTemplateAnnouncement(W, H, cx) {
 
   ctx.textAlign = "left";
   let y = topPad + blockH + Math.max(10, Math.round(H * 0.02));
-  for (let i = 0; i < Math.min(lines.length, 11); i++) {
+  for (let i = 0; i < Math.min(lines.length, 12); i++) {
     const line = lines[i];
     ctx.fillText(line, xLeft, y);
     y += lh;
@@ -1131,9 +1139,9 @@ function drawTemplateAnnouncement(W, H, cx) {
   const ribbonW = Math.max(300, Math.round(W * 0.72));
   const ribbonAngle = (-28 * Math.PI) / 180;
 
-  const footerTpl = `900 {size}px "Arial Narrow", system-ui`;
+  const footerTpl = `800 {size}px "Arial Narrow", system-ui`;
   const footerBase = Math.round(Math.min(W, H) * 0.05 * FONT_SCALE);
-  const footerSize = fitText(footerText.toUpperCase(), Math.round(ribbonW * 0.7), footerBase, 14, footerTpl);
+  const footerSize = fitText(footerText.toUpperCase(), Math.round(ribbonW * 0.68), footerBase, 12, footerTpl);
   const offsetX = Math.round(W * 0.005);
   const offsetY = Math.round(H * 0.19);
 
@@ -1142,7 +1150,7 @@ function drawTemplateAnnouncement(W, H, cx) {
   ctx.rotate(ribbonAngle);
 
   ctx.fillStyle = footerColor;
-  ctx.fillRect(-ribbonW, -ribbonH, ribbonW + Math.round(W * 0.06), ribbonH + Math.round(H * 0.02));
+  ctx.fillRect(-ribbonW, -ribbonH, ribbonW + Math.round(W * 0.06), ribbonH);
 
   ctx.fillStyle = COLORS.white;
   ctx.font = footerTpl.replace("{size}", footerSize);
