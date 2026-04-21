@@ -5,7 +5,7 @@ const ctx = canvas.getContext("2d");
 const FONT_SCALE = 1.1;
 
 const SCORE_FONT_SIZE = 220;
-const SCORERS_FONT_SIZE = 34;
+const SCORERS_FONT_SIZE = 32;
 const SCORERS_LINE_GAP = 8;
 const SCORERS_MAX_ROWS = 5;
 const SCORERS_TOP_GAP = 20;
@@ -715,17 +715,17 @@ function drawBase(W, H) {
   }
 
   if (useFinal) {
-    ctx.fillStyle = "rgba(1,56,136,0.45)";
+    ctx.fillStyle = "rgba(1,56,136,0.2)";
     ctx.fillRect(0, 0, W, H);
   }
 }
 
 function drawBanner(W, H, cx, text) {
-  const baseH = Math.round(H * 0.15);
+  const baseH = Math.round(H * 0.12);
 
   const bannerText = (text || "MATCHDAG").trim().toUpperCase();
   const bannerBaseSize = Math.round(Math.min(W, H) * 0.13 * FONT_SCALE);
-  const bannerTpl = `700 {size}px "Segoe UI", system-ui`;
+  const bannerTpl = `600 {size}px "Segoe UI", system-ui`;
   const bannerSize = fitText(bannerText, Math.round(W * 0.9), bannerBaseSize, 18, bannerTpl);
 
   // league + round under bannerText (smaller)
@@ -771,7 +771,7 @@ function drawBanner(W, H, cx, text) {
 }
 
 function drawLogosLocked(W, H, bannerH) {
-  const contentTop = bannerH + Math.round(H * 0.12);
+  const contentTop = bannerH + Math.round(H * 0.15);
   const logoSize = Math.round(Math.min(W, H) * 0.25);
   const logosY = contentTop;
 
@@ -781,27 +781,27 @@ function drawLogosLocked(W, H, bannerH) {
   const homeCX = Math.round(W * (2 / 7));
   const awayCX = Math.round(W * (5 / 7));
 
-  if (homeToDraw) drawFixedHeightCentered(homeToDraw, homeCX, logosY, 280, 1);
-  if (awayToDraw) drawFixedHeightCentered(awayToDraw, awayCX, logosY, 280, 1);
+  if (homeToDraw) drawFixedHeightCentered(homeToDraw, homeCX, logosY, 240, 1);
+  if (awayToDraw) drawFixedHeightCentered(awayToDraw, awayCX, logosY, 240, 1);
 
   return { contentTop, logoSize, logosY };
 }
 
 function drawFooterBar(W, H, cx, text) {
-  const footerH = Math.round(H * 0.078);
+  const footerH = Math.round(H * 0.07);
   const footerY = H - footerH;
 
   ctx.fillStyle = COLORS.blue;
   ctx.fillRect(0, footerY, W, footerH);
 
   const footerText = (text || " ").toUpperCase();
-  const footerBaseSize = Math.round(Math.min(W, H) * 0.07 * FONT_SCALE);
-  const footerTpl = `700 {size}px "Arial Narrow", system-ui`;
+  const footerBaseSize = Math.round(Math.min(W, H) * 0.05 * FONT_SCALE);
+  const footerTpl = `500 {size}px "Arial Narrow", system-ui`;
   const footerSize = fitText(
     footerText,
     Math.round(W * 0.82),
     footerBaseSize,
-    16,
+    14,
     footerTpl
   );
 
@@ -827,9 +827,9 @@ function drawMatchupStackedCentered({
   const base = Math.round(Math.min(canvas.width, canvas.height) * 0.12 * FONT_SCALE);
   const minSize = 18;
 
-  const homeTpl = `800 {size}px ${fontFamily}`;
-  const awayTpl = `800 {size}px ${fontFamily}`;
-  const vsTpl = `800 {size}px ${fontFamily}`;
+  const homeTpl = `700 {size}px ${fontFamily}`;
+  const awayTpl = `600 {size}px ${fontFamily}`;
+  const vsTpl = `700 {size}px ${fontFamily}`;
 
   const homeSize = fitText(home, maxWidth, base, minSize, homeTpl);
   const awaySize = fitText(away, maxWidth, base, minSize, awayTpl);
@@ -901,10 +901,10 @@ function drawTemplateFinal(W, H, cx, bannerH, logosMeta) {
       ? logosMeta.contentTop + logosMeta.logoSize
       : bannerH + Math.round(H * 0.22);
 
-  const scoreY = baseTop + Math.round(H * 0.25);
+  const scoreY = baseTop + Math.round(H * 0.32);
 
   ctx.save();
-  ctx.font = `700 ${SCORE_FONT_SIZE}px "Segoe UI", system-ui`;
+  ctx.font = `600 ${SCORE_FONT_SIZE}px "Segoe UI", system-ui`;
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
 
@@ -913,10 +913,10 @@ function drawTemplateFinal(W, H, cx, bannerH, logosMeta) {
 
   const boxX = 0;
   const boxW = W;
-  const boxH = Math.round(SCORE_FONT_SIZE + padY * 1.4);
+  const boxH = Math.round(SCORE_FONT_SIZE + padY * 0.8);
   const boxY = Math.round(scoreY - padY);
 
-  ctx.fillStyle = "rgba(244,242,238,0.65)";
+  ctx.fillStyle = "rgba(244,242,238,0.5)";
   ctx.fillRect(boxX, boxY, boxW, boxH);
 
   const homeLogo = state.homeLogo || state.placeholderLogo;
@@ -944,7 +944,7 @@ function drawTemplateFinal(W, H, cx, bannerH, logosMeta) {
   const msg = ((el("finalMessage")?.value || "")).trim();
 
   if (msg) {
-    const msgTpl = `700 {size}px "Segoe UI", system-ui`;
+    const msgTpl = `600 {size}px "Segoe UI", system-ui`;
     const msgBase = Math.round(Math.min(W, H) * 0.06);
     const msgSize = fitText(msg, Math.round(W * 0.92), msgBase, 18, msgTpl);
 
@@ -1004,7 +1004,7 @@ function drawTemplateSigning(W, H, cx) {
   const topPad = Math.round(H * 0.06);
 
   const title = "NYFÖRVÄRV";
-  const titleTpl = `700 {size}px "Segoe UI", system-ui`;
+  const titleTpl = `600 {size}px "Segoe UI", system-ui`;
   const titleBase = Math.round(H * 0.11 * FONT_SCALE);
   const titleSize = fitText(title, maxW, titleBase, 18, titleTpl);
 
@@ -1037,7 +1037,7 @@ function drawTemplateSigning(W, H, cx) {
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
 
-  const nameTpl = `800 {size}px "Segoe UI", system-ui`;
+  const nameTpl = `700 {size}px "Segoe UI", system-ui`;
   const nameBase = Math.round(Math.min(W, H) * 0.16 * FONT_SCALE);
 
   let size = nameBase;
